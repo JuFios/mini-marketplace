@@ -62,4 +62,12 @@ export class AppConfigService {
   get catalogCacheTtlSeconds(): Env['CATALOG_CACHE_TTL_SECONDS'] {
     return this.config.get('CATALOG_CACHE_TTL_SECONDS', { infer: true });
   }
+
+  get paymentMockFailureRate(): Env['PAYMENT_MOCK_FAILURE_RATE'] {
+    return this.config.get('PAYMENT_MOCK_FAILURE_RATE', { infer: true });
+  }
+
+  get paymentMockDelayMs(): Env['PAYMENT_MOCK_DELAY_MS'] {
+    return this.config.get('PAYMENT_MOCK_DELAY_MS', { infer: true });
+  }
 }

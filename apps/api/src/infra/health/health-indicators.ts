@@ -4,7 +4,7 @@ import { Redis } from 'ioredis';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
-import { withTimeout } from './with-timeout';
+import { withTimeout } from '../../common/utils/with-timeout';
 
 const PING_TIMEOUT_MS = 3_000;
 

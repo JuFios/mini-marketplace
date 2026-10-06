@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { InvalidOrderTransitionException } from '../../common/exceptions/app.exception';
-import { OrderStatus, Prisma } from '../../generated/prisma/client';
+import { OrderStatus, PaymentStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { CatalogCacheService } from '../catalog-cache/catalog-cache.service';
 import type { AdminOrderResponse, OrderResponse } from './dto/order.response.dto';
@@ -13,8 +13,11 @@ import { OrdersRepository, StatusChange } from './orders.repository';
 
 interface Actor {
   role: OrderActor;
-  id: string;
+  /** The user behind the change; the system acts on nobody's behalf. */
+  id: string | null;
 }
+
+const SYSTEM: Actor = { role: 'system', id: null };
 
 interface Transitioned<T> {
   from: OrderStatus;
@@ -64,6 +67,42 @@ export class OrderLifecycleService {
   }
 
   /**
+   * Payment processing: the charge succeeded, so the NEW order is paid and moves to PROCESSING.
+   * Throws `INVALID_ORDER_TRANSITION` if the order is no longer NEW (e.g. it was cancelled while
+   * the charge was in flight); the caller decides what that means.
+   */
+  async markPaid(orderId: string, paymentRef: string): Promise<void> {
+    await this.transition(
+      (tx) => this.orders.findById(orderId, tx),
+      OrderStatus.PROCESSING,
+      SYSTEM,
+      { paymentStatus: PaymentStatus.PAID, paymentRef },
+    );
+  }
+
+  /**
+   * Payment processing: the charge was declined, so the NEW order is cancelled (payment FAILED,
+   * reason PAYMENT_FAILED) and its stock goes back. Throws `INVALID_ORDER_TRANSITION` like
+   * `markPaid`.
+   */
+  async cancelDeclined(orderId: string): Promise<void> {
+    await this.transition((tx) => this.orders.findById(orderId, tx), OrderStatus.CANCELLED, SYSTEM);
+  }
+
+  /**
+   * The customer cancelled while the charge was being made, and it went through: the order is
+   * already CANCELLED (payment VOIDED, stock back), so what is left is to refund the money.
+   * Returns whether this call did it.
+   */
+  async refundCancelled(orderId: string, paymentRef: string): Promise<boolean> {
+    const refunded = await this.orders.markRefunded(orderId, paymentRef);
+    if (refunded) {
+      this.logger.info({ event: 'order.refunded', orderId, paymentRef }, 'Order payment refunded');
+    }
+    return refunded;
+  }
+
+  /**
    * One transaction: read the order, check the transition, change the status conditionally and,
    * for a cancellation, restock. `load` finds the order the caller may act on (it is also what
    * scopes a customer to their own orders) and is called again to read the result back.
@@ -72,6 +111,7 @@ export class OrderLifecycleService {
     load: (tx: Prisma.TransactionClient) => Promise<T | null>,
     to: OrderStatus,
     actor: Actor,
+    extra: Omit<StatusChange, 'status'> = {},
   ): Promise<Transitioned<T>> {
     const done = await this.prisma.$transaction(
       async (tx): Promise<Transitioned<T>> => {
@@ -81,6 +121,7 @@ export class OrderLifecycleService {
         const change: StatusChange = {
           status: to,
           ...(to === OrderStatus.CANCELLED && cancellationOutcome(before.status, actor.role)),
+          ...extra,
         };
         // Concurrency: the status check is part of the UPDATE (see OrdersRepository.changeStatus),
         // so of several requests racing on this order (a double click, the customer against an

@@ -4,18 +4,28 @@ import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { Redis } from 'ioredis';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
+import { OrderWorkerModule } from '../../src/modules/orders/order-worker.module';
 import { REDIS_CLIENT } from '../../src/infra/redis/redis.module';
 
 /**
  * Boots the real application (same modules and setup as production) against the test database
  * and Redis. `customize` can override providers, e.g. to simulate a dependency outage;
  * `controllers` registers extra, test-only routes next to the real ones.
+ *
+ * Orders are handed to the queue as in production, but nothing consumes it unless `worker` is
+ * set: then the order worker runs inside the test app, so a placed order is paid by the mock
+ * provider like in a deployment. Without it orders stay NEW, which is what the tests of the
+ * order lifecycle rely on.
  */
 export async function createTestApp(
   customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
   controllers: Type<unknown>[] = [],
+  { worker = false }: { worker?: boolean } = {},
 ): Promise<INestApplication> {
-  const builder = Test.createTestingModule({ imports: [AppModule], controllers });
+  const builder = Test.createTestingModule({
+    imports: worker ? [AppModule, OrderWorkerModule] : [AppModule],
+    controllers,
+  });
   const moduleRef = await (customize ? customize(builder) : builder).compile();
 
   const app = moduleRef.createNestApplication({ bufferLogs: true });

@@ -86,6 +86,11 @@ function setup(
         return Promise.resolve(stored && view(stored));
       },
     ),
+    findById: jest.fn((_id: string, client?: unknown): Promise<OrderWithCustomer | null> => {
+      steps.push(client === tx ? 'read' : 'read outside transaction');
+      return Promise.resolve(stored && view(stored));
+    }),
+    markRefunded: jest.fn((_id: string, _ref: string) => Promise.resolve(true)),
     changeStatus: jest.fn((_id: string, from: OrderStatus, change: StatusChange) => {
       steps.push(`update ${from} → ${change.status}`);
       changed = moved ? change : undefined;
@@ -370,6 +375,100 @@ describe('OrderLifecycleService', () => {
       });
       expect(inventory.restock).not.toHaveBeenCalled();
       expect(steps).not.toContain('commit');
+    });
+  });
+
+  describe('the system, while processing a payment', () => {
+    it('marks a NEW order paid: PROCESSING with the payment reference, no restock, no cache bump', async () => {
+      const { service, steps, orders, logger } = setup(orderIn('NEW'));
+
+      await service.markPaid(ORDER_ID, 'mock_order-1');
+
+      expect(steps).toEqual([
+        'begin',
+        'read',
+        'update NEW → PROCESSING',
+        'read',
+        'commit',
+        'log order.status_changed',
+      ]);
+      expect(orders.changeStatus).toHaveBeenCalledWith(
+        ORDER_ID,
+        'NEW',
+        { status: 'PROCESSING', paymentStatus: 'PAID', paymentRef: 'mock_order-1' },
+        expect.anything(),
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'NEW', to: 'PROCESSING', actor: 'system', actorId: null }),
+        expect.any(String),
+      );
+    });
+
+    it.each(['PROCESSING', 'SHIPPED', 'CANCELLED'] as const)(
+      'refuses to mark a %s order paid, writing nothing',
+      async (status) => {
+        const { service, steps } = setup(orderIn(status));
+
+        await expect(service.markPaid(ORDER_ID, 'mock_order-1')).rejects.toMatchObject({
+          code: 'INVALID_ORDER_TRANSITION',
+          details: { currentStatus: status, requestedStatus: 'PROCESSING' },
+        });
+        expect(steps).toEqual(['begin', 'read']);
+      },
+    );
+
+    it('cancels a declined NEW order: payment FAILED, reason PAYMENT_FAILED, stock back, cache bumped', async () => {
+      const { service, steps, orders } = setup(orderIn('NEW'));
+
+      await service.cancelDeclined(ORDER_ID);
+
+      expect(steps).toEqual([
+        'begin',
+        'read',
+        'update NEW → CANCELLED',
+        'restock',
+        'read',
+        'commit',
+        'invalidate cache',
+        'log order.status_changed',
+        'log order.cancelled',
+      ]);
+      expect(orders.changeStatus).toHaveBeenCalledWith(
+        ORDER_ID,
+        'NEW',
+        { status: 'CANCELLED', paymentStatus: 'FAILED', cancelReason: 'PAYMENT_FAILED' },
+        expect.anything(),
+      );
+    });
+
+    it('refuses to cancel a declined order that was cancelled meanwhile, without a second restock', async () => {
+      const { service, inventory } = setup(orderIn('CANCELLED', 'VOIDED'));
+
+      await expect(service.cancelDeclined(ORDER_ID)).rejects.toMatchObject({
+        code: 'INVALID_ORDER_TRANSITION',
+      });
+      expect(inventory.restock).not.toHaveBeenCalled();
+    });
+
+    it('refunds an order cancelled while its charge was in flight, and logs it once', async () => {
+      const { service, orders, logger } = setup(orderIn('CANCELLED', 'VOIDED'));
+
+      await expect(service.refundCancelled(ORDER_ID, 'mock_order-1')).resolves.toBe(true);
+
+      expect(orders.markRefunded).toHaveBeenCalledWith(ORDER_ID, 'mock_order-1');
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'order.refunded', orderId: ORDER_ID }),
+        expect.any(String),
+      );
+    });
+
+    it('does not log a refund that did not happen', async () => {
+      const { service, orders, logger } = setup(orderIn('CANCELLED', 'REFUNDED'));
+      orders.markRefunded.mockResolvedValue(false);
+
+      await expect(service.refundCancelled(ORDER_ID, 'mock_order-1')).resolves.toBe(false);
+
+      expect(logger.info).not.toHaveBeenCalled();
     });
   });
 });
