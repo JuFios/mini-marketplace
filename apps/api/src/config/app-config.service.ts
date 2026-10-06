@@ -58,4 +58,8 @@ export class AppConfigService {
   get uploadMaxBytes(): Env['UPLOAD_MAX_BYTES'] {
     return this.config.get('UPLOAD_MAX_BYTES', { infer: true });
   }
+
+  get catalogCacheTtlSeconds(): Env['CATALOG_CACHE_TTL_SECONDS'] {
+    return this.config.get('CATALOG_CACHE_TTL_SECONDS', { infer: true });
+  }
 }

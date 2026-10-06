@@ -4,6 +4,7 @@ import { whereLive } from '../../common/prisma/where-live';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import type { ProductStatusFilter } from './dto/admin-product-query.dto';
+import type { ProductSort } from './dto/product-query.dto';
 import type { ProductWithCategory } from './mappers/to-product-response';
 
 const WITH_CATEGORY = { category: { select: { id: true, name: true } } } as const;
@@ -13,6 +14,21 @@ export interface AdminProductFilter {
   categoryId?: string;
   status: ProductStatusFilter;
 }
+
+export interface LiveProductFilter {
+  search: string | null;
+  categoryId: string | null;
+  minPrice: string | null;
+  maxPrice: string | null;
+  inStock: boolean;
+}
+
+// `id` ends every order so pages are stable even when many products share a price or a timestamp.
+const ORDER_BY: Record<ProductSort, Prisma.ProductOrderByWithRelationInput[]> = {
+  newest: [{ createdAt: 'desc' }, { id: 'asc' }],
+  price_asc: [{ price: 'asc' }, { id: 'asc' }],
+  price_desc: [{ price: 'desc' }, { id: 'asc' }],
+};
 
 export interface CreateProductData {
   name: string;
@@ -40,6 +56,19 @@ function toWhere({ search, categoryId, status }: AdminProductFilter): Prisma.Pro
   };
 }
 
+function toLiveWhere(filter: LiveProductFilter): Prisma.ProductWhereInput {
+  const { search, categoryId, minPrice, maxPrice, inStock } = filter;
+  return {
+    ...whereLive(),
+    ...(categoryId && { categoryId }),
+    ...((minPrice || maxPrice) && {
+      price: { ...(minPrice && { gte: minPrice }), ...(maxPrice && { lte: maxPrice }) },
+    }),
+    ...(inStock && { stock: { gt: 0 } }),
+    ...(search && { name: { contains: escapeLike(search), mode: 'insensitive' } }),
+  };
+}
+
 @Injectable()
 export class ProductsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -62,6 +91,33 @@ export class ProductsRepository {
       }),
     ]);
     return { items, total };
+  }
+
+  async findLivePage(
+    filter: LiveProductFilter,
+    sort: ProductSort,
+    skip: number,
+    take: number,
+  ): Promise<{ items: ProductWithCategory[]; total: number }> {
+    const where = toLiveWhere(filter);
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.product.count({ where }),
+      this.prisma.product.findMany({
+        where,
+        include: WITH_CATEGORY,
+        orderBy: ORDER_BY[sort],
+        skip,
+        take,
+      }),
+    ]);
+    return { items, total };
+  }
+
+  findLiveById(id: string): Promise<ProductWithCategory | null> {
+    return this.prisma.product.findFirst({
+      where: { id, ...whereLive() },
+      include: WITH_CATEGORY,
+    });
   }
 
   findById(id: string): Promise<ProductWithCategory | null> {

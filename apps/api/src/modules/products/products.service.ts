@@ -8,6 +8,7 @@ import {
 import { ErrorCode } from '../../common/exceptions/error-codes';
 import { isRecordNotFound } from '../../common/filters/database-error';
 import { Paginated, pageOffset, paginated } from '../../common/pagination/pagination.dto';
+import { CatalogCacheService } from '../catalog-cache/catalog-cache.service';
 import { CategoriesService } from '../categories/categories.service';
 import type { AdminProductQueryDto } from './dto/admin-product-query.dto';
 import type { CreateProductDto } from './dto/create-product.dto';
@@ -25,6 +26,7 @@ export class ProductsService {
   constructor(
     private readonly products: ProductsRepository,
     private readonly categories: CategoriesService,
+    private readonly catalogCache: CatalogCacheService,
     private readonly logger: PinoLogger,
   ) {
     // See AuthService: `@InjectPinoLogger` would make module import order significant.
@@ -49,32 +51,43 @@ export class ProductsService {
 
   async create(dto: CreateProductDto): Promise<AdminProductResponse> {
     await this.categories.assertExists(dto.categoryId);
-    return toAdminProductResponse(await this.products.create(dto));
+    const product = await this.products.create(dto);
+    await this.catalogCache.invalidate();
+    return toAdminProductResponse(product);
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<AdminProductResponse> {
     if (dto.categoryId) await this.categories.assertExists(dto.categoryId);
+    let product;
     try {
-      return toAdminProductResponse(await this.products.update(id, dto));
+      product = await this.products.update(id, dto);
     } catch (error) {
       if (isRecordNotFound(error)) throw notFound();
       throw error;
     }
+    await this.catalogCache.invalidate();
+    return toAdminProductResponse(product);
   }
 
   /** Soft delete. Idempotent: archiving an archived product is not an error. */
   async archive(id: string): Promise<void> {
-    if (await this.products.archive(id, new Date())) return;
+    if (await this.products.archive(id, new Date())) {
+      await this.catalogCache.invalidate();
+      return;
+    }
     if (!(await this.products.findStockState(id))) throw notFound();
   }
 
   async restore(id: string): Promise<AdminProductResponse> {
+    let product;
     try {
-      return toAdminProductResponse(await this.products.restore(id));
+      product = await this.products.restore(id);
     } catch (error) {
       if (isRecordNotFound(error)) throw notFound();
       throw error;
     }
+    await this.catalogCache.invalidate();
+    return toAdminProductResponse(product);
   }
 
   async adjustStock(
@@ -84,6 +97,8 @@ export class ProductsService {
   ): Promise<StockAdjustmentResponse> {
     const stock = await this.products.adjustStock(id, dto.delta);
     if (stock === null) throw await this.explainRejectedAdjustment(id, dto.delta);
+    // Stock is part of the cached product, so a committed change must drop the cache.
+    await this.catalogCache.invalidate();
 
     this.logger.info(
       {

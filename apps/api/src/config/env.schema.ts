@@ -25,6 +25,8 @@ export const baseEnvSchema = z.object({
   // Product images are stored on local disk and served from /uploads.
   UPLOAD_DIR: z.string().min(1).default('./uploads'),
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1).default(2_097_152),
+  // How long a cached catalog response may be served at most (writes invalidate it sooner).
+  CATALOG_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).default(120),
 });
 
 export const envSchema = baseEnvSchema.refine(

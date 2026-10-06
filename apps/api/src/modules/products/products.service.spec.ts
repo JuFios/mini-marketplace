@@ -10,13 +10,15 @@ function setup() {
     create: jest.fn(),
   };
   const categories = { assertExists: jest.fn().mockResolvedValue(undefined) };
+  const catalogCache = { invalidate: jest.fn().mockResolvedValue(undefined) };
   const logger = { info: jest.fn(), setContext: jest.fn() };
   const service = new ProductsService(
     products as never,
     categories as unknown as CategoriesService,
+    catalogCache as never,
     logger as unknown as PinoLogger,
   );
-  return { service, products, categories, logger };
+  return { service, products, categories, catalogCache, logger };
 }
 
 describe('ProductsService.adjustStock', () => {
