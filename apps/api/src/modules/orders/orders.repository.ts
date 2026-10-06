@@ -1,12 +1,24 @@
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, Prisma } from '../../generated/prisma/client';
+import { escapeLike } from '../../common/prisma/escape-like';
+import { CancelReason, OrderStatus, PaymentStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import type { OrderWithItems } from './mappers/to-order-response';
+import type { CreatedAtRange } from './created-at-range';
+import {
+  AdminOrderSummaryRow,
+  CUSTOMER_SELECT,
+  ITEMS_COUNT,
+  OrderSummaryRow,
+  OrderWithCustomer,
+  OrderWithItems,
+} from './mappers/to-order-response';
 
 // Lines in a stable, readable order: by name, then id for products that share one.
 const WITH_ITEMS = {
   items: { orderBy: [{ productName: 'asc' }, { productId: 'asc' }] },
 } as const satisfies Prisma.OrderInclude;
+
+// `id` ends the order so pages are stable when several orders share a timestamp.
+const NEWEST_FIRST: Prisma.OrderOrderByWithRelationInput[] = [{ createdAt: 'desc' }, { id: 'asc' }];
 
 export interface NewOrderItem {
   productId: string;
@@ -23,13 +35,84 @@ export interface NewOrder {
   items: NewOrderItem[];
 }
 
+export interface AdminOrderFilter {
+  status?: OrderStatus;
+  createdAt?: CreatedAtRange;
+  /** Part of the customer's email, matched case-insensitively and literally. */
+  customerEmail?: string;
+}
+
+/** What a status change writes besides the status itself. */
+export interface StatusChange {
+  status: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  cancelReason?: CancelReason;
+}
+
 @Injectable()
 export class OrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   /** An order of this customer; another customer's order is simply not found. */
-  findOwn(userId: string, id: string): Promise<OrderWithItems | null> {
-    return this.prisma.order.findFirst({ where: { id, userId }, include: WITH_ITEMS });
+  findOwn(
+    userId: string,
+    id: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<OrderWithItems | null> {
+    return (tx ?? this.prisma).order.findFirst({ where: { id, userId }, include: WITH_ITEMS });
+  }
+
+  /** Any order, with its customer: for administrators. */
+  findWithCustomer(id: string, tx?: Prisma.TransactionClient): Promise<OrderWithCustomer | null> {
+    return (tx ?? this.prisma).order.findUnique({
+      where: { id },
+      include: { ...WITH_ITEMS, user: CUSTOMER_SELECT },
+    });
+  }
+
+  async findOwnPage(
+    userId: string,
+    status: OrderStatus | undefined,
+    skip: number,
+    take: number,
+  ): Promise<{ items: OrderSummaryRow[]; total: number }> {
+    const where: Prisma.OrderWhereInput = { userId, ...(status && { status }) };
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        include: ITEMS_COUNT,
+        orderBy: NEWEST_FIRST,
+        skip,
+        take,
+      }),
+    ]);
+    return { items, total };
+  }
+
+  async findPage(
+    { status, createdAt, customerEmail }: AdminOrderFilter,
+    skip: number,
+    take: number,
+  ): Promise<{ items: AdminOrderSummaryRow[]; total: number }> {
+    const where: Prisma.OrderWhereInput = {
+      ...(status && { status }),
+      ...(createdAt && { createdAt }),
+      ...(customerEmail && {
+        user: { email: { contains: escapeLike(customerEmail), mode: 'insensitive' } },
+      }),
+    };
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.order.count({ where }),
+      this.prisma.order.findMany({
+        where,
+        include: { ...ITEMS_COUNT, user: CUSTOMER_SELECT },
+        orderBy: NEWEST_FIRST,
+        skip,
+        take,
+      }),
+    ]);
+    return { items, total };
   }
 
   findByIdempotencyKey(
@@ -60,5 +143,26 @@ export class OrdersRepository {
       },
       include: WITH_ITEMS,
     });
+  }
+
+  /**
+   * Moves the order out of `from`, and reports whether this call did it. `false` means the order
+   * was no longer in `from`: another request changed it first.
+   *
+   * Concurrency: the status check is the WHERE clause of the UPDATE itself, so a read followed by
+   * a write can never act on a stale status. The UPDATE locks the row; a concurrent change of the
+   * same order waits for this transaction, and PostgreSQL then re-evaluates the WHERE clause
+   * against the newly committed row (at READ COMMITTED), which no longer matches. Of any number
+   * of racing requests exactly one gets `true`, so whatever must happen once per change (the
+   * restock of a cancellation) is done only by that one.
+   */
+  async changeStatus(
+    id: string,
+    from: OrderStatus,
+    change: StatusChange,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const { count } = await tx.order.updateMany({ where: { id, status: from }, data: change });
+    return count === 1;
   }
 }

@@ -1,4 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
+import type { OrderStatus } from '../../generated/prisma/client';
 import { ErrorCode } from './error-codes';
 
 /**
@@ -92,6 +93,21 @@ export class InsufficientStockException extends AppException {
 export class CartLimitExceededException extends AppException {
   constructor(message = 'Cart limit exceeded') {
     super(ErrorCode.CART_LIMIT_EXCEEDED, HttpStatus.CONFLICT, message);
+  }
+}
+
+/**
+ * The order cannot move to the requested status: the state machine forbids it for this caller, or
+ * another request changed the order first. `currentStatus` is what the order is now.
+ */
+export class InvalidOrderTransitionException extends AppException {
+  constructor(currentStatus: OrderStatus, requestedStatus: OrderStatus) {
+    super(
+      ErrorCode.INVALID_ORDER_TRANSITION,
+      HttpStatus.CONFLICT,
+      `An order that is ${currentStatus} cannot be changed to ${requestedStatus}`,
+      { currentStatus, requestedStatus },
+    );
   }
 }
 

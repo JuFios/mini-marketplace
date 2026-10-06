@@ -82,7 +82,7 @@ export class CheckoutService {
 
     if (!outcome.created) return replay(outcome.order);
     await this.afterCommit(outcome.order);
-    return { order: toOrderResponse(outcome.order), replayed: false };
+    return { order: toOrderResponse(outcome.order, 'customer'), replayed: false };
   }
 
   private async checkout(
@@ -188,5 +188,5 @@ export class CheckoutService {
 }
 
 function replay(order: OrderWithItems): CheckoutResult {
-  return { order: toOrderResponse(order), replayed: true };
+  return { order: toOrderResponse(order, 'customer'), replayed: true };
 }
