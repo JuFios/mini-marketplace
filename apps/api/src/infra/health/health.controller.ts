@@ -1,10 +1,15 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { HealthCheckResult, HealthCheckService } from '@nestjs/terminus';
 import { ServiceUnavailableAppException } from '../../common/exceptions/app.exception';
+import { Public } from '../../modules/auth/decorators/public.decorator';
 import { DatabaseHealthIndicator, RedisHealthIndicator } from './health-indicators';
 
+// Probed by orchestrators every few seconds: neither authenticated nor rate limited.
 @ApiTags('health')
+@Public()
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(

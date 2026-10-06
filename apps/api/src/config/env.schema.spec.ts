@@ -3,6 +3,8 @@ import { validateEnv } from './env.schema';
 const VALID = {
   DATABASE_URL: 'postgresql://app:s3cret@localhost:5432/shop',
   REDIS_URL: 'redis://localhost:6379',
+  JWT_ACCESS_SECRET: 'a'.repeat(32),
+  JWT_REFRESH_SECRET: 'b'.repeat(32),
 };
 
 describe('validateEnv', () => {
@@ -13,18 +15,24 @@ describe('validateEnv', () => {
       PORT: 3000,
       LOG_LEVEL: 'info',
       SWAGGER_ENABLED: true,
+      JWT_ACCESS_TTL_SECONDS: 900,
+      JWT_REFRESH_TTL_SECONDS: 604800,
+      COOKIE_SECURE: false,
     });
   });
 
   it('reports every missing required variable at once', () => {
-    expect(() => validateEnv({})).toThrow(/DATABASE_URL[\s\S]*REDIS_URL/);
+    expect(() => validateEnv({})).toThrow(/DATABASE_URL[\s\S]*REDIS_URL[\s\S]*JWT_ACCESS_SECRET/);
   });
 
-  it.each(['DATABASE_URL', 'REDIS_URL'])('rejects an environment without %s', (name) => {
-    const { [name]: _removed, ...rest } = VALID as Record<string, string>;
+  it.each(['DATABASE_URL', 'REDIS_URL', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'])(
+    'rejects an environment without %s',
+    (name) => {
+      const { [name]: _removed, ...rest } = VALID as Record<string, string>;
 
-    expect(() => validateEnv(rest)).toThrow(name);
-  });
+      expect(() => validateEnv(rest)).toThrow(name);
+    },
+  );
 
   it('never echoes the offending value, which may be a credential', () => {
     const attempt = (): unknown =>
@@ -42,6 +50,9 @@ describe('validateEnv', () => {
     ['an unknown log level', { LOG_LEVEL: 'verbose' }],
     ['an unknown NODE_ENV', { NODE_ENV: 'staging' }],
     ['a boolean spelled "yes"', { SWAGGER_ENABLED: 'yes' }],
+    ['a JWT secret shorter than 32 characters', { JWT_ACCESS_SECRET: 'too-short' }],
+    ['identical access and refresh secrets', { JWT_REFRESH_SECRET: 'a'.repeat(32) }],
+    ['a zero token lifetime', { JWT_ACCESS_TTL_SECONDS: '0' }],
   ])('rejects %s', (_label, override) => {
     expect(() => validateEnv({ ...VALID, ...override })).toThrow(
       /Invalid environment configuration/,

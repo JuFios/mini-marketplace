@@ -1,10 +1,11 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
+import { API_PREFIX } from './common/api-prefix';
 import { AppConfigService } from './config/app-config.service';
 
-export const API_PREFIX = 'api/v1';
 const SWAGGER_PATH = 'api/docs';
 
 /**
@@ -16,6 +17,8 @@ export function configureApp(app: INestApplication): void {
 
   app.useLogger(app.get(Logger));
   app.use(helmet());
+  // Only the refresh cookie is read from cookies; the access token travels in a header.
+  app.use(cookieParser());
   // Set before the Swagger document is built so documented paths include the prefix.
   app.setGlobalPrefix(API_PREFIX);
   // SIGTERM/SIGINT close the app, which disconnects Prisma and Redis.
@@ -28,6 +31,8 @@ export function configureApp(app: INestApplication): void {
         .setTitle('Mini Marketplace API')
         .setDescription('REST API of the Mini Marketplace')
         .setVersion('1.0')
+        .addBearerAuth()
+        .addCookieAuth('refresh_token')
         .build(),
     );
     SwaggerModule.setup(SWAGGER_PATH, app, document, { jsonDocumentUrl: `${SWAGGER_PATH}-json` });

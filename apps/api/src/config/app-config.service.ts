@@ -30,4 +30,24 @@ export class AppConfigService {
   get redisUrl(): Env['REDIS_URL'] {
     return this.config.get('REDIS_URL', { infer: true });
   }
+
+  get jwtAccessSecret(): Env['JWT_ACCESS_SECRET'] {
+    return this.config.get('JWT_ACCESS_SECRET', { infer: true });
+  }
+
+  get jwtRefreshSecret(): Env['JWT_REFRESH_SECRET'] {
+    return this.config.get('JWT_REFRESH_SECRET', { infer: true });
+  }
+
+  get jwtAccessTtlSeconds(): Env['JWT_ACCESS_TTL_SECONDS'] {
+    return this.config.get('JWT_ACCESS_TTL_SECONDS', { infer: true });
+  }
+
+  get jwtRefreshTtlSeconds(): Env['JWT_REFRESH_TTL_SECONDS'] {
+    return this.config.get('JWT_REFRESH_TTL_SECONDS', { infer: true });
+  }
+
+  get cookieSecure(): Env['COOKIE_SECURE'] {
+    return this.config.get('COOKIE_SECURE', { infer: true });
+  }
 }

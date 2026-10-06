@@ -45,3 +45,8 @@ export function readDatabaseError(error: unknown): DatabaseErrorInfo | undefined
   }
   return info;
 }
+
+export function isUniqueViolation(error: unknown): boolean {
+  const info = readDatabaseError(error);
+  return info?.prismaCode === 'P2002' || info?.sqlState === SqlState.UNIQUE_VIOLATION;
+}

@@ -33,6 +33,30 @@ export class ValidationFailedException extends AppException {
   }
 }
 
+export class UnauthorizedAppException extends AppException {
+  constructor(message = 'Authentication required', code: ErrorCode = ErrorCode.UNAUTHORIZED) {
+    super(code, HttpStatus.UNAUTHORIZED, message);
+  }
+}
+
+export class InvalidCredentialsException extends UnauthorizedAppException {
+  constructor() {
+    super('Invalid email or password', ErrorCode.INVALID_CREDENTIALS);
+  }
+}
+
+export class RefreshTokenInvalidException extends UnauthorizedAppException {
+  constructor() {
+    super('Refresh token is missing, expired or already used', ErrorCode.REFRESH_TOKEN_INVALID);
+  }
+}
+
+export class ForbiddenAppException extends AppException {
+  constructor(message = 'You do not have access to this resource') {
+    super(ErrorCode.FORBIDDEN, HttpStatus.FORBIDDEN, message);
+  }
+}
+
 export class ResourceNotFoundException extends AppException {
   constructor(message = 'Resource not found', code: ErrorCode = ErrorCode.NOT_FOUND) {
     super(code, HttpStatus.NOT_FOUND, message);
