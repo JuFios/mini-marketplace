@@ -1,46 +1,20 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter } from 'react-router';
-import { RouterProvider } from 'react-router/dom';
-import { describe, expect, it } from 'vitest';
-import { AuthProvider } from '@/features/auth/auth-provider';
-import { createApiClient } from '@/shared/api/http-client';
-import type { User } from '@/shared/api/types';
-import { ADMIN, apiError, authResponse, CUSTOMER, createFakeServer } from '@/test/fake-api';
-import { createQueryClient } from './query-client';
-import { routes } from './routes';
+import { describe, expect, it, vi } from 'vitest';
+import { ADMIN, CUSTOMER } from '@/test/fake-api';
+import { renderApp } from '@/test/render-app';
 
-/**
- * The whole app (providers, router, guards, forms) over a scripted API. `session` is who the
- * refresh cookie belongs to on load: nobody, or a user.
- */
-function renderApp(path: string, session: User | null = null) {
-  const server = createFakeServer((request) => {
-    switch (request.url) {
-      case '/auth/refresh':
-        return session
-          ? { status: 200, data: authResponse('t-restored', session) }
-          : apiError(401, 'REFRESH_TOKEN_INVALID');
-      case '/auth/login':
-        return { status: 200, data: authResponse('t-login', CUSTOMER) };
-      case '/auth/logout':
-        return { status: 204 };
-      default:
-        return apiError(404, 'NOT_FOUND');
-    }
-  });
-  const client = createApiClient({ baseURL: '/api/v1', adapter: server.adapter });
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
-  render(
-    <QueryClientProvider client={createQueryClient()}>
-      <AuthProvider client={client}>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </QueryClientProvider>,
-  );
-  return { server, router };
-}
+// The pages fetch through these; the tests here are about routing, so they get empty answers.
+vi.mock('@/features/catalog/api', () => ({
+  fetchProducts: () =>
+    Promise.resolve({ items: [], meta: { page: 1, limit: 12, total: 0, totalPages: 0 } }),
+  fetchProduct: () => Promise.reject(new Error('not used')),
+  fetchCategories: () => Promise.resolve([]),
+}));
+vi.mock('@/features/cart/api', () => ({
+  fetchCart: () =>
+    Promise.resolve({ items: [], totalQuantity: 0, subtotal: '0.00', hasIssues: false }),
+}));
 
 describe('login flow', () => {
   it('sends an anonymous visitor from a customer page to the login and back after logging in', async () => {
@@ -69,9 +43,7 @@ describe('login flow', () => {
   it('keeps a logged-in person off the login page', async () => {
     const { router } = renderApp('/login', CUSTOMER);
 
-    expect(
-      await screen.findByRole('heading', { name: 'The catalog is on its way' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   });
 });
@@ -109,9 +81,7 @@ describe('role-based routes', () => {
   it('keeps a customer out of the admin area', async () => {
     const { router } = renderApp('/admin', CUSTOMER);
 
-    expect(
-      await screen.findByRole('heading', { name: 'The catalog is on its way' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   });
 
@@ -125,9 +95,7 @@ describe('role-based routes', () => {
   it('keeps an administrator out of the customer pages', async () => {
     const { router } = renderApp('/cart', ADMIN);
 
-    expect(
-      await screen.findByRole('heading', { name: 'The catalog is on its way' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
   });
 

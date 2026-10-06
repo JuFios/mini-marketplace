@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney } from './money';
+import { formatMoney, fromCents, toCents } from './money';
 
 describe('formatMoney', () => {
   it.each([
@@ -18,5 +18,32 @@ describe('formatMoney', () => {
 
   it('shows a malformed amount as received', () => {
     expect(formatMoney('12,5')).toBe('12,5');
+  });
+});
+
+describe('toCents / fromCents', () => {
+  it.each([
+    ['19.99', 1999],
+    ['5', 500],
+    ['5.5', 550],
+    ['0.05', 5],
+    ['1000000.00', 100000000],
+  ])('reads %s as %i cents', (amount, cents) => {
+    expect(toCents(amount)).toBe(cents);
+  });
+
+  it.each([
+    [1999, '19.99'],
+    [500, '5.00'],
+    [5, '0.05'],
+    [0, '0.00'],
+  ])('writes %i cents as %s', (cents, amount) => {
+    expect(fromCents(cents)).toBe(amount);
+  });
+
+  it('rejects what is not an amount', () => {
+    expect(() => toCents('1,5')).toThrow();
+    expect(() => toCents('-1.00')).toThrow();
+    expect(() => toCents('1.999')).toThrow();
   });
 });
