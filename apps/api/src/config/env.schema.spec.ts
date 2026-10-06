@@ -18,6 +18,8 @@ describe('validateEnv', () => {
       JWT_ACCESS_TTL_SECONDS: 900,
       JWT_REFRESH_TTL_SECONDS: 604800,
       COOKIE_SECURE: false,
+      UPLOAD_DIR: './uploads',
+      UPLOAD_MAX_BYTES: 2097152,
     });
   });
 

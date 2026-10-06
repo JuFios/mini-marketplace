@@ -50,3 +50,12 @@ export function isUniqueViolation(error: unknown): boolean {
   const info = readDatabaseError(error);
   return info?.prismaCode === 'P2002' || info?.sqlState === SqlState.UNIQUE_VIOLATION;
 }
+
+export function isRecordNotFound(error: unknown): boolean {
+  return readDatabaseError(error)?.prismaCode === 'P2025';
+}
+
+export function isForeignKeyViolation(error: unknown): boolean {
+  const info = readDatabaseError(error);
+  return info?.prismaCode === 'P2003' || info?.sqlState === SqlState.FOREIGN_KEY_VIOLATION;
+}

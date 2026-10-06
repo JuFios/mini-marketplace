@@ -22,6 +22,9 @@ export const baseEnvSchema = z.object({
   JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().min(1).default(604_800),
   // `Secure` cookies are only sent over HTTPS: enable wherever the API is served over TLS.
   COOKIE_SECURE: booleanFlag.default(false),
+  // Product images are stored on local disk and served from /uploads.
+  UPLOAD_DIR: z.string().min(1).default('./uploads'),
+  UPLOAD_MAX_BYTES: z.coerce.number().int().min(1).default(2_097_152),
 });
 
 export const envSchema = baseEnvSchema.refine(

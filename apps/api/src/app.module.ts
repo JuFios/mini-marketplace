@@ -6,7 +6,10 @@ import { AppLoggerModule } from './infra/logger/logger.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { SecurityModule } from './infra/security/security.module';
+import { StorageModule } from './infra/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductsModule } from './modules/products/products.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -16,9 +19,12 @@ import { UsersModule } from './modules/users/users.module';
     CommonModule,
     PrismaModule,
     RedisModule,
+    StorageModule,
     HealthModule,
     UsersModule,
     AuthModule,
+    CategoriesModule,
+    ProductsModule,
     SecurityModule,
   ],
 })

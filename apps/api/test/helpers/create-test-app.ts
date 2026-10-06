@@ -21,7 +21,9 @@ export async function createTestApp(
   const app = moduleRef.createNestApplication({ bufferLogs: true });
   configureApp(app);
   try {
-    await app.init();
+    // Listening once, on an ephemeral port: supertest would otherwise call `listen` on the same
+    // server for every request, which races when requests are sent in parallel.
+    await app.listen(0, '127.0.0.1');
     // The application does not wait for Redis (its cache paths fail open), so a test could
     // otherwise start, or tear the app down, while the client is still connecting. A failed
     // ping is fine: tests that simulate an outage override the client on purpose.
