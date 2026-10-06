@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Type } from '@nestjs/common';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { Redis } from 'ioredis';
 import { AppModule } from '../../src/app.module';
@@ -8,12 +8,14 @@ import { REDIS_CLIENT } from '../../src/infra/redis/redis.module';
 
 /**
  * Boots the real application (same modules and setup as production) against the test database
- * and Redis. `customize` can override providers, e.g. to simulate a dependency outage.
+ * and Redis. `customize` can override providers, e.g. to simulate a dependency outage;
+ * `controllers` registers extra, test-only routes next to the real ones.
  */
 export async function createTestApp(
   customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+  controllers: Type<unknown>[] = [],
 ): Promise<INestApplication> {
-  const builder = Test.createTestingModule({ imports: [AppModule] });
+  const builder = Test.createTestingModule({ imports: [AppModule], controllers });
   const moduleRef = await (customize ? customize(builder) : builder).compile();
 
   const app = moduleRef.createNestApplication({ bufferLogs: true });

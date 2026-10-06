@@ -2,14 +2,14 @@ import { createHash } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as argon2 from 'argon2';
 import { z } from 'zod';
-import { envSchema } from '../src/config/env.schema';
+import { baseEnvSchema } from '../src/config/env.schema';
 import { PrismaClient, Role } from '../src/generated/prisma/client';
 import { SEED_CATEGORIES } from './seed-data';
 
 // Run through `prisma db seed`: the Prisma CLI loads the environment (see `prisma.config.ts`).
 // The seed runs outside the Nest container, so it validates its few variables itself, with the
 // same schema pieces the API uses.
-const seedEnvSchema = envSchema.pick({ DATABASE_URL: true }).extend({
+const seedEnvSchema = baseEnvSchema.pick({ DATABASE_URL: true }).extend({
   ADMIN_EMAIL: z
     .email()
     .max(254)
