@@ -6,8 +6,10 @@ dist/
 coverage/
 storybook-static/
 *.tsbuildinfo
+# Prisma client; recreated by `prisma generate`, which runs on install
+apps/api/src/generated/
 
-# Environment (only .env.example is committed)
+# Environment (only .env.example and the e2e suite's .env.test, which holds no secrets, are committed)
 .env
 .env.local
 .env.*.local
