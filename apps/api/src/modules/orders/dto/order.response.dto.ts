@@ -22,4 +22,30 @@ export class OrderResponse {
   items!: OrderItemResponse[];
   createdAt!: string;
   updatedAt!: string;
+  /** The statuses the caller may move this order to right now; drives the UI's action buttons. */
+  allowedTransitions!: OrderStatus[];
+}
+
+export class OrderSummaryResponse {
+  id!: string;
+  status!: OrderStatus;
+  paymentStatus!: PaymentStatus;
+  totalAmount!: string;
+  /** Number of order lines (distinct products), not of units. */
+  itemsCount!: number;
+  createdAt!: string;
+}
+
+export class OrderCustomerResponse {
+  id!: string;
+  email!: string;
+  name!: string;
+}
+
+export class AdminOrderSummaryResponse extends OrderSummaryResponse {
+  customer!: OrderCustomerResponse;
+}
+
+export class AdminOrderResponse extends OrderResponse {
+  customer!: OrderCustomerResponse;
 }

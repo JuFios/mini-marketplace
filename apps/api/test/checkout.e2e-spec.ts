@@ -130,6 +130,7 @@ describe('checkout (e2e)', () => {
         cancelReason: null,
         totalAmount: '116.30',
         shippingAddress: ADDRESS,
+        allowedTransitions: ['CANCELLED'],
         items: [
           {
             productId: keyboard.id,
