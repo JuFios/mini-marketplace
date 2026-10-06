@@ -13,7 +13,8 @@
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+    "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src"]
+  "include": ["src", ".storybook/preview.tsx"]
 }
