@@ -28,7 +28,7 @@ jobs:
       - run: npm run typecheck
 
   unit-tests:
-    name: Unit tests
+    name: API unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,7 +37,22 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm test -w api
+
+  web:
+    name: Web tests, build, Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test -w web
+      - run: npm run build -w web
+      # Building Storybook catches a story that no longer compiles or renders.
+      - run: npm run build-storybook -w web
 
   api-tests:
     name: API e2e tests (PostgreSQL + Redis)

@@ -1,1 +1,15 @@
 @import 'tailwindcss';
+
+/* One place to rebrand: components use `brand-*`, never a concrete palette. */
+@theme inline {
+  --color-brand-50: var(--color-indigo-50);
+  --color-brand-100: var(--color-indigo-100);
+  --color-brand-600: var(--color-indigo-600);
+  --color-brand-700: var(--color-indigo-700);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+  }
+}
