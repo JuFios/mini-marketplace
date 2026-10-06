@@ -33,6 +33,16 @@ export class ValidationFailedException extends AppException {
   }
 }
 
+export class IdempotencyKeyRequiredException extends AppException {
+  constructor() {
+    super(
+      ErrorCode.IDEMPOTENCY_KEY_REQUIRED,
+      HttpStatus.BAD_REQUEST,
+      'The Idempotency-Key header is required: 8-64 characters from A-Z, a-z, 0-9, "_" and "-"',
+    );
+  }
+}
+
 export class UnauthorizedAppException extends AppException {
   constructor(message = 'Authentication required', code: ErrorCode = ErrorCode.UNAUTHORIZED) {
     super(code, HttpStatus.UNAUTHORIZED, message);
