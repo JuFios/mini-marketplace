@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output and generated artefacts
+dist/
+coverage/
+storybook-static/
+*.tsbuildinfo
+
+# Environment (only .env.example is committed)
+.env
+.env.local
+.env.*.local
+
+# Uploaded product images (Docker volume in production)
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

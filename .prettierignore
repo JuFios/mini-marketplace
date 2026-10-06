@@ -1,0 +1,9 @@
+# Generated
+node_modules
+dist
+coverage
+storybook-static
+package-lock.json
+
+# Markdown is hand-formatted
+*.md
