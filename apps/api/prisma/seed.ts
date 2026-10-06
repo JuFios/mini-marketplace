@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { baseEnvSchema } from '../src/config/env.schema';
 import { PrismaClient, Role } from '../src/generated/prisma/client';
 import { SEED_CATEGORIES } from './seed-data';
+import { seedBulkProducts } from './seed-bulk';
 
+// `prisma db seed -- --bulk [count]` also adds synthetic products (default 5000) for query-plan work.
 // Run through `prisma db seed`: the Prisma CLI loads the environment (see `prisma.config.ts`).
 // The seed runs outside the Nest container, so it validates its few variables itself, with the
 // same schema pieces the API uses.
@@ -66,12 +68,15 @@ async function main(): Promise<void> {
     }
 
     let productCount = 0;
+    const categoryIds: string[] = [];
     for (const { name, products } of SEED_CATEGORIES) {
       const category = await prisma.category.upsert({
         where: { name },
         create: { id: seedId(`category:${name}`), name },
         update: {},
       });
+
+      categoryIds.push(category.id);
 
       for (const product of products) {
         await prisma.product.upsert({
@@ -87,6 +92,14 @@ async function main(): Promise<void> {
         });
         productCount += 1;
       }
+    }
+
+    const bulkFlag = process.argv.indexOf('--bulk');
+    if (bulkFlag !== -1) {
+      const requested = Number(process.argv[bulkFlag + 1]);
+      const count = Number.isInteger(requested) && requested > 0 ? requested : 5000;
+      const added = await seedBulkProducts(prisma, categoryIds, count, seedId);
+      console.log(`Bulk seed: ${added} of ${count} synthetic products added.`);
     }
 
     console.log(

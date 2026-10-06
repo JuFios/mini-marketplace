@@ -20,6 +20,7 @@ describe('validateEnv', () => {
       COOKIE_SECURE: false,
       UPLOAD_DIR: './uploads',
       UPLOAD_MAX_BYTES: 2097152,
+      CATALOG_CACHE_TTL_SECONDS: 120,
     });
   });
 
