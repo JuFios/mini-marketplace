@@ -8,6 +8,7 @@ import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { SecurityModule } from './infra/security/security.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CartModule } from './modules/cart/cart.module';
 import { CategoriesModule } from './modules/categories/categories.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     ProductsModule,
     CartModule,
     OrdersModule,
+    AnalyticsModule,
     SecurityModule,
   ],
 })

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Paginated, pageOffset, paginated } from '../../common/pagination/pagination.dto';
-import { createdAtRange } from './created-at-range';
+import { createdAtRange } from '../../common/utils/utc-days';
 import type { AdminOrderQueryDto, OrderQueryDto } from './dto/order-query.dto';
 import type {
   AdminOrderResponse,
