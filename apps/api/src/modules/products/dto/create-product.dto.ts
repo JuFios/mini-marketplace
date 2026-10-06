@@ -1,13 +1,11 @@
-import { Transform, TransformFnParams } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 import { IsImageUrl } from '../../../common/validators/is-image-url.decorator';
 import { IsMoney } from '../../../common/validators/is-money.decorator';
+import { trim } from '../../../common/validators/trim.transform';
 
 export const MAX_PRICE = '1000000.00';
 export const MAX_STOCK = 1_000_000;
-
-export const trim = ({ value }: TransformFnParams): unknown =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class CreateProductDto {
   @Transform(trim)

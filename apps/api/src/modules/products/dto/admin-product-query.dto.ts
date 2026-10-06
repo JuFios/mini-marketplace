@@ -1,7 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsIn, IsOptional, IsString, IsUUID, Length } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
-import { trim } from './create-product.dto';
+import { trim } from '../../../common/validators/trim.transform';
 
 export const PRODUCT_STATUSES = ['active', 'archived', 'all'] as const;
 export type ProductStatusFilter = (typeof PRODUCT_STATUSES)[number];

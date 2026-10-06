@@ -11,8 +11,8 @@ import {
 } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/pagination/pagination.dto';
 import { IsPriceFilter } from '../../../common/validators/is-price-filter.decorator';
+import { trim } from '../../../common/validators/trim.transform';
 import { Prisma } from '../../../generated/prisma/client';
-import { trim } from './create-product.dto';
 
 export const PRODUCT_SORTS = ['newest', 'price_asc', 'price_desc'] as const;
 export type ProductSort = (typeof PRODUCT_SORTS)[number];

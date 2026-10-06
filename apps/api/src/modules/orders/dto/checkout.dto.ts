@@ -1,8 +1,6 @@
-import { Transform, TransformFnParams } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { IsString, Length } from 'class-validator';
-
-const trim = ({ value }: TransformFnParams): unknown =>
-  typeof value === 'string' ? value.trim() : value;
+import { trim } from '../../../common/validators/trim.transform';
 
 export class CheckoutDto {
   @Transform(trim)
