@@ -27,6 +27,10 @@ export const baseEnvSchema = z.object({
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1).default(2_097_152),
   // How long a cached catalog response may be served at most (writes invalidate it sooner).
   CATALOG_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).default(120),
+  // The mock payment provider: the share of orders it declines (0 never, 1 always; the verdict
+  // for an order is fixed, see MockPaymentProvider) and how long a charge takes.
+  PAYMENT_MOCK_FAILURE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+  PAYMENT_MOCK_DELAY_MS: z.coerce.number().int().min(0).max(30_000).default(1_000),
 });
 
 export const envSchema = baseEnvSchema.refine(

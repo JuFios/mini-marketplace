@@ -21,6 +21,8 @@ describe('validateEnv', () => {
       UPLOAD_DIR: './uploads',
       UPLOAD_MAX_BYTES: 2097152,
       CATALOG_CACHE_TTL_SECONDS: 120,
+      PAYMENT_MOCK_FAILURE_RATE: 0.1,
+      PAYMENT_MOCK_DELAY_MS: 1000,
     });
   });
 
@@ -77,5 +79,25 @@ describe('validateEnv', () => {
     expect(
       validateEnv({ ...VALID, REDIS_URL: 'rediss://cache.example.com:6380/1' }).REDIS_URL,
     ).toBe('rediss://cache.example.com:6380/1');
+  });
+
+  it('accepts the mock payment settings at their bounds, as strings', () => {
+    expect(
+      validateEnv({ ...VALID, PAYMENT_MOCK_FAILURE_RATE: '1', PAYMENT_MOCK_DELAY_MS: '0' }),
+    ).toMatchObject({ PAYMENT_MOCK_FAILURE_RATE: 1, PAYMENT_MOCK_DELAY_MS: 0 });
+    expect(validateEnv({ ...VALID, PAYMENT_MOCK_FAILURE_RATE: '0' })).toMatchObject({
+      PAYMENT_MOCK_FAILURE_RATE: 0,
+    });
+  });
+
+  it.each([
+    ['PAYMENT_MOCK_FAILURE_RATE', '1.5'],
+    ['PAYMENT_MOCK_FAILURE_RATE', '-0.1'],
+    ['PAYMENT_MOCK_FAILURE_RATE', 'often'],
+    ['PAYMENT_MOCK_DELAY_MS', '-1'],
+    ['PAYMENT_MOCK_DELAY_MS', '1.5'],
+    ['PAYMENT_MOCK_DELAY_MS', '30001'],
+  ])('rejects %s=%s', (name, value) => {
+    expect(() => validateEnv({ ...VALID, [name]: value })).toThrow(name);
   });
 });

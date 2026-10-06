@@ -6,7 +6,9 @@
   "scripts": {
     "build": "nest build",
     "dev": "nest start --watch",
+    "dev:worker": "nest start --watch --entryFile worker",
     "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "jest",
@@ -14,6 +16,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.5",
     "@nestjs/common": "^11.2.7",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.2.7",
@@ -25,6 +28,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "argon2": "^0.45.1",
+    "bullmq": "^6.3.11",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",

@@ -46,6 +46,7 @@ export interface AdminOrderFilter {
 export interface StatusChange {
   status: OrderStatus;
   paymentStatus?: PaymentStatus;
+  paymentRef?: string;
   cancelReason?: CancelReason;
 }
 
@@ -60,6 +61,11 @@ export class OrdersRepository {
     tx?: Prisma.TransactionClient,
   ): Promise<OrderWithItems | null> {
     return (tx ?? this.prisma).order.findFirst({ where: { id, userId }, include: WITH_ITEMS });
+  }
+
+  /** Any order, whoever owns it: for the system's own work (payment processing). */
+  findById(id: string, tx?: Prisma.TransactionClient): Promise<OrderWithItems | null> {
+    return (tx ?? this.prisma).order.findUnique({ where: { id }, include: WITH_ITEMS });
   }
 
   /** Any order, with its customer: for administrators. */
@@ -115,6 +121,20 @@ export class OrdersRepository {
     return { items, total };
   }
 
+  /**
+   * Ids of orders that are still NEW although they were placed before `before`: their payment
+   * should have been processed by now. Oldest first, served by the (status, created_at) index.
+   */
+  async findStaleNewIds(before: Date, limit: number): Promise<string[]> {
+    const rows = await this.prisma.order.findMany({
+      where: { status: OrderStatus.NEW, createdAt: { lt: before } },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
+    return rows.map((row) => row.id);
+  }
+
   findByIdempotencyKey(
     userId: string,
     idempotencyKey: string,
@@ -163,6 +183,19 @@ export class OrdersRepository {
     tx: Prisma.TransactionClient,
   ): Promise<boolean> {
     const { count } = await tx.order.updateMany({ where: { id, status: from }, data: change });
+    return count === 1;
+  }
+
+  /**
+   * Turns the void of an order that was cancelled while its payment was being charged into a
+   * refund, and records the charge's reference. `false` when the order is not in that state
+   * (nothing to refund, or already refunded): the conditional UPDATE makes this safe to repeat.
+   */
+  async markRefunded(id: string, paymentRef: string): Promise<boolean> {
+    const { count } = await this.prisma.order.updateMany({
+      where: { id, status: OrderStatus.CANCELLED, paymentStatus: PaymentStatus.VOIDED },
+      data: { paymentStatus: PaymentStatus.REFUNDED, paymentRef },
+    });
     return count === 1;
   }
 }
