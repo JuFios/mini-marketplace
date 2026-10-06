@@ -43,6 +43,12 @@ export class ProductsService {
     return paginated(items.map(toAdminProductResponse), total, query.page, query.limit);
   }
 
+  /** Minimal facts other modules (the cart) need before they accept a product. */
+  async getAvailability(id: string): Promise<{ stock: number; isArchived: boolean } | null> {
+    const state = await this.products.findStockState(id);
+    return state && { stock: state.stock, isArchived: state.deletedAt !== null };
+  }
+
   async get(id: string): Promise<AdminProductResponse> {
     const product = await this.products.findById(id);
     if (!product) throw notFound();
