@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { escapeLike } from '../../common/prisma/escape-like';
 import { CancelReason, OrderStatus, PaymentStatus, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import type { CreatedAtRange } from './created-at-range';
+import type { CreatedAtRange } from '../../common/utils/utc-days';
 import {
   AdminOrderSummaryRow,
   CUSTOMER_SELECT,

@@ -6,6 +6,7 @@ import { baseEnvSchema } from '../src/config/env.schema';
 import { PrismaClient, Role } from '../src/generated/prisma/client';
 import { SEED_CATEGORIES } from './seed-data';
 import { seedBulkProducts } from './seed-bulk';
+import { seedDemoOrders } from './seed-orders';
 
 // `prisma db seed -- --bulk [count]` also adds synthetic products (default 5000) for query-plan work.
 // Run through `prisma db seed`: the Prisma CLI loads the environment (see `prisma.config.ts`).
@@ -17,7 +18,11 @@ const seedEnvSchema = baseEnvSchema.pick({ DATABASE_URL: true }).extend({
     .max(254)
     .transform((email) => email.toLowerCase()),
   ADMIN_PASSWORD: z.string().min(8).max(72),
+  // The demo customer owns the seeded order history. A published demo password, not a secret.
+  DEMO_CUSTOMER_PASSWORD: z.string().min(8).max(72).default('Customer12345'),
 });
+
+const DEMO_CUSTOMER_EMAIL = 'customer@example.com';
 
 /**
  * Name-based UUID (version 5 layout). Products have no natural unique key, so the same name
@@ -67,6 +72,16 @@ async function main(): Promise<void> {
       });
     }
 
+    let customer = await prisma.user.findUnique({ where: { email: DEMO_CUSTOMER_EMAIL } });
+    customer ??= await prisma.user.create({
+      data: {
+        email: DEMO_CUSTOMER_EMAIL,
+        name: 'Demo Customer',
+        passwordHash: await argon2.hash(env.DEMO_CUSTOMER_PASSWORD, { type: argon2.argon2id }),
+        role: Role.CUSTOMER,
+      },
+    });
+
     let productCount = 0;
     const categoryIds: string[] = [];
     for (const { name, products } of SEED_CATEGORIES) {
@@ -94,6 +109,13 @@ async function main(): Promise<void> {
       }
     }
 
+    const seeded = SEED_CATEGORIES.flatMap(({ products }) => products).map((product) => ({
+      id: seedId(`product:${product.name}`),
+      name: product.name,
+      price: product.price,
+    }));
+    const orders = await seedDemoOrders(prisma, customer.id, seeded, seedId);
+
     const bulkFlag = process.argv.indexOf('--bulk');
     if (bulkFlag !== -1) {
       const requested = Number(process.argv[bulkFlag + 1]);
@@ -104,7 +126,8 @@ async function main(): Promise<void> {
 
     console.log(
       `Seed complete: administrator ${env.ADMIN_EMAIL} ${admin ? 'already existed' : 'created'}, ` +
-        `${SEED_CATEGORIES.length} categories and ${productCount} products ensured.`,
+        `${SEED_CATEGORIES.length} categories and ${productCount} products ensured, ` +
+        `${orders} demo orders added for ${DEMO_CUSTOMER_EMAIL}.`,
     );
   } finally {
     await prisma.$disconnect();

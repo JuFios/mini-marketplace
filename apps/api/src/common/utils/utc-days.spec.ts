@@ -1,4 +1,4 @@
-import { createdAtRange } from './created-at-range';
+import { addUtcDays, createdAtRange, inclusiveDayCount, utcDay, utcDayBounds } from './utc-days';
 
 describe('createdAtRange', () => {
   it('has no bounds without a filter', () => {
@@ -36,5 +36,33 @@ describe('createdAtRange', () => {
     expect(createdAtRange(undefined, '2028-02-29')?.lt).toEqual(
       new Date('2028-03-01T00:00:00.000Z'),
     );
+  });
+});
+
+describe('UTC day helpers', () => {
+  it('names the UTC day of an instant, whatever the local zone', () => {
+    expect(utcDay(new Date('2026-10-06T23:59:59.999Z'))).toBe('2026-10-06');
+    expect(utcDay(new Date('2026-10-07T00:00:00.000Z'))).toBe('2026-10-07');
+  });
+
+  it('moves days across month, year and leap-day boundaries', () => {
+    expect(addUtcDays('2026-10-06', -29)).toBe('2026-09-07');
+    expect(addUtcDays('2026-01-01', -1)).toBe('2025-12-31');
+    expect(addUtcDays('2028-02-28', 1)).toBe('2028-02-29');
+    expect(addUtcDays('2026-10-06', 0)).toBe('2026-10-06');
+  });
+
+  it('counts the days of a range with both ends included', () => {
+    expect(inclusiveDayCount('2026-10-06', '2026-10-06')).toBe(1);
+    expect(inclusiveDayCount('2026-10-01', '2026-10-30')).toBe(30);
+    expect(inclusiveDayCount('2025-10-06', '2026-10-06')).toBe(366);
+    expect(inclusiveDayCount('2028-02-28', '2028-03-01')).toBe(3);
+  });
+
+  it('gives [start, end) bounds that include the whole last day', () => {
+    expect(utcDayBounds('2026-10-01', '2026-10-02')).toEqual({
+      start: new Date('2026-10-01T00:00:00.000Z'),
+      end: new Date('2026-10-03T00:00:00.000Z'),
+    });
   });
 });
