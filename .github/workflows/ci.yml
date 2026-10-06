@@ -38,3 +38,55 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  api-tests:
+    name: API e2e tests (PostgreSQL + Redis)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: marketplace
+          POSTGRES_PASSWORD: marketplace
+          POSTGRES_DB: mini_marketplace_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U marketplace -d mini_marketplace_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    # Throwaway services of this job only; the test suite refuses any database whose name does
+    # not end in `_test` and any Redis without a dedicated database index.
+    env:
+      DATABASE_URL: postgresql://marketplace:marketplace@localhost:5432/mini_marketplace_test
+      REDIS_URL: redis://localhost:6379/1
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: Admin12345
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+      # Running the seed twice proves it is idempotent: the second run would fail on any
+      # duplicate it tried to insert.
+      - name: Seed (twice)
+        run: |
+          npx prisma db seed
+          npx prisma db seed
+        working-directory: apps/api
+      - run: npm run test:e2e -w api

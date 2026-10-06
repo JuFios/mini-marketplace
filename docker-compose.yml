@@ -1,0 +1,45 @@
+# Development dependencies. Every value has a dev-safe default, so the stack starts without a
+# `.env`; override through the environment or a root `.env` (see `.env.example`).
+name: mini-marketplace
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-marketplace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketplace}
+      POSTGRES_DB: ${POSTGRES_DB:-mini_marketplace}
+      # Read by the init script below to create the database used by the e2e tests.
+      POSTGRES_TEST_DB: ${POSTGRES_TEST_DB:-mini_marketplace_test}
+    ports:
+      # Loopback only: the default credentials must not be reachable from the network.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # `noeviction` is required by BullMQ: evicting queue keys would silently lose jobs. Cache
+    # keys therefore always carry a TTL instead of relying on eviction.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

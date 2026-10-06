@@ -4,6 +4,7 @@ dist
 coverage
 storybook-static
 package-lock.json
+apps/api/src/generated
 
 # Markdown is hand-formatted
 *.md

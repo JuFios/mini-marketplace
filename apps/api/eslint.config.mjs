@@ -3,7 +3,7 @@ import globals from 'globals';
 import { baseConfigs } from '../../eslint.base.mjs';
 
 export default defineConfig(
-  globalIgnores(['dist', 'coverage']),
+  globalIgnores(['dist', 'coverage', 'src/generated']),
   baseConfigs,
   {
     languageOptions: {
