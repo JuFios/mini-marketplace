@@ -97,8 +97,10 @@ export function createFakeServer(handler: FakeHandler) {
 /** A promise that is settled from outside, to hold a fake request in flight. */
 export function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }

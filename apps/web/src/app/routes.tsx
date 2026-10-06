@@ -1,6 +1,7 @@
 import { Outlet, type RouteObject } from 'react-router';
 import { CartPage } from '@/features/cart/pages/cart-page';
 import { CatalogPage } from '@/features/catalog/pages/catalog-page';
+import { ProductPage } from '@/features/product/pages/product-page';
 import { LoginPage } from '@/features/auth/pages/login-page';
 import { RegisterPage } from '@/features/auth/pages/register-page';
 import { RequireGuest } from '@/features/auth/require-guest';
@@ -22,6 +23,7 @@ export const routes: RouteObject[] = [
         element: <PublicLayout />,
         children: [
           { index: true, element: <CatalogPage /> },
+          { path: 'products/:id', element: <ProductPage /> },
           {
             element: <RequireGuest />,
             children: [

@@ -39,11 +39,12 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
       <Button
         ref={triggerRef}
         variant="ghost"
+        className="max-w-36 sm:max-w-56"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((current) => !current)}
       >
-        {user.name}
+        <span className="truncate">{user.name}</span>
       </Button>
       {open && (
         <div
