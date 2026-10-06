@@ -2,7 +2,8 @@ import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsUUID, Length, ValidateIf } from 'class-validator';
 import { IsImageUrl } from '../../../common/validators/is-image-url.decorator';
 import { IsMoney } from '../../../common/validators/is-money.decorator';
-import { MAX_PRICE, trim } from './create-product.dto';
+import { trim } from '../../../common/validators/trim.transform';
+import { MAX_PRICE } from './create-product.dto';
 
 // Written out instead of derived with PartialType: that makes every field nullable, while only
 // `imageUrl` may be cleared with null. `stock` is absent on purpose and rejected as unknown.

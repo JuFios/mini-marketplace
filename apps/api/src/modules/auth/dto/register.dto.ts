@@ -1,11 +1,9 @@
 import { Transform, TransformFnParams } from 'class-transformer';
 import { IsEmail, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { trim } from '../../../common/validators/trim.transform';
 
 export const normalizeEmail = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;
-
-const trim = ({ value }: TransformFnParams): unknown =>
-  typeof value === 'string' ? value.trim() : value;
 
 export class RegisterDto {
   @Transform(normalizeEmail)
