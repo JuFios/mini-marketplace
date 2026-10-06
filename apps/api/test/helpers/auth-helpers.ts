@@ -4,6 +4,7 @@ import request, { Response } from 'supertest';
 import type { AuthResponse } from '../../src/modules/auth/dto/auth.response.dto';
 import { Role } from '../../src/generated/prisma/client';
 import { PrismaService } from '../../src/infra/prisma/prisma.service';
+import { TokenService } from '../../src/modules/auth/token.service';
 import { httpServer } from './create-test-app';
 
 export const PASSWORD = 'secret123';
@@ -43,4 +44,26 @@ export async function createAdmin(
       passwordHash: await argon2.hash(PASSWORD, { type: argon2.argon2id }),
     },
   });
+}
+
+export interface TestUser {
+  id: string;
+  /** `Authorization` header value for this user. */
+  bearer: string;
+}
+
+/**
+ * Inserts a user and signs an access token for it directly, skipping the login endpoint: faster,
+ * and it keeps tests that are not about authentication out of the login rate limits.
+ */
+export async function createUserWithToken(
+  app: INestApplication,
+  role: Role,
+  email = `${role.toLowerCase()}@example.com`,
+): Promise<TestUser> {
+  const user = await app
+    .get(PrismaService)
+    .user.create({ data: { email, name: role, role, passwordHash: 'not-a-real-hash' } });
+  const token = app.get(TokenService).signAccess({ id: user.id, role });
+  return { id: user.id, bearer: `Bearer ${token}` };
 }

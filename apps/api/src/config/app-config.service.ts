@@ -50,4 +50,12 @@ export class AppConfigService {
   get cookieSecure(): Env['COOKIE_SECURE'] {
     return this.config.get('COOKIE_SECURE', { infer: true });
   }
+
+  get uploadDir(): Env['UPLOAD_DIR'] {
+    return this.config.get('UPLOAD_DIR', { infer: true });
+  }
+
+  get uploadMaxBytes(): Env['UPLOAD_MAX_BYTES'] {
+    return this.config.get('UPLOAD_MAX_BYTES', { infer: true });
+  }
 }

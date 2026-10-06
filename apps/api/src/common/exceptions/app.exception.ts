@@ -96,6 +96,12 @@ export class ConcurrentUpdateException extends AppException {
   }
 }
 
+export class UnsupportedMediaTypeException extends AppException {
+  constructor(message = 'Unsupported media type') {
+    super(ErrorCode.UNSUPPORTED_MEDIA_TYPE, HttpStatus.UNSUPPORTED_MEDIA_TYPE, message);
+  }
+}
+
 export class ServiceUnavailableAppException extends AppException {
   constructor(message = 'Service temporarily unavailable', details?: unknown) {
     super(ErrorCode.SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE, message, details);

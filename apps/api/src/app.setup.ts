@@ -1,10 +1,15 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { API_PREFIX } from './common/api-prefix';
 import { AppConfigService } from './config/app-config.service';
+import {
+  LocalDiskImageStorage,
+  UPLOADS_URL_PREFIX,
+} from './infra/storage/local-disk-image-storage';
 
 const SWAGGER_PATH = 'api/docs';
 
@@ -19,6 +24,17 @@ export function configureApp(app: INestApplication): void {
   app.use(helmet());
   // Only the refresh cookie is read from cookies; the access token travels in a header.
   app.use(cookieParser());
+  // Uploaded images: public, outside the API prefix and the auth guards. File names are random
+  // UUIDs and never change, so they can be cached for good.
+  app.use(
+    UPLOADS_URL_PREFIX,
+    express.static(app.get(LocalDiskImageStorage).directory, {
+      index: false,
+      dotfiles: 'deny',
+      immutable: true,
+      maxAge: '365d',
+    }),
+  );
   // Set before the Swagger document is built so documented paths include the prefix.
   app.setGlobalPrefix(API_PREFIX);
   // SIGTERM/SIGINT close the app, which disconnects Prisma and Redis.
