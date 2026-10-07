@@ -7,6 +7,11 @@ import { SalesByDayResponse, SummaryResponse } from './dto/analytics.response.dt
 import { DateRangeQueryDto } from './dto/date-range-query.dto';
 import { SalesReportService } from './sales-report.service';
 
+// Shown on every endpoint: all three count the same sales, and the basis is easy to misread.
+const SALES_BASIS =
+  'A sale is an order that is PROCESSING, SHIPPED or COMPLETED, counted on the UTC day the order was placed. ' +
+  'An order cancelled later drops out of its day, so figures for past days can go down.';
+
 @ApiTags('admin-analytics')
 @ApiBearerAuth()
 @Roles(Role.ADMIN)
@@ -18,20 +23,29 @@ export class AnalyticsController {
   ) {}
 
   @Get('summary')
-  @ApiOperation({ summary: 'Revenue, orders, average order value and the top 5 products' })
+  @ApiOperation({
+    summary: 'Revenue, orders, average order value and the top 5 products',
+    description: SALES_BASIS,
+  })
   summary(@Query() query: DateRangeQueryDto): Promise<SummaryResponse> {
     return this.analytics.summary(query);
   }
 
   @Get('sales-by-day')
-  @ApiOperation({ summary: 'Revenue and orders per UTC day; days without sales are included' })
+  @ApiOperation({
+    summary: 'Revenue and orders per UTC day; days without sales are included',
+    description: SALES_BASIS,
+  })
   salesByDay(@Query() query: DateRangeQueryDto): Promise<SalesByDayResponse> {
     return this.analytics.salesByDay(query);
   }
 
   // Declared with a literal path; Nest serves the file as it is produced, without buffering it.
   @Get('sales-report.csv')
-  @ApiOperation({ summary: 'Download the sales of the range as CSV, one row per order line' })
+  @ApiOperation({
+    summary: 'Download the sales of the range as CSV, one row per order line',
+    description: SALES_BASIS,
+  })
   @ApiProduces('text/csv')
   async salesReport(@Query() query: DateRangeQueryDto): Promise<StreamableFile> {
     const { filename, stream } = await this.report.open(query);

@@ -44,6 +44,17 @@ export class IdempotencyKeyRequiredException extends AppException {
   }
 }
 
+/** A key that already produced an order is sent again with a request that differs from the first. */
+export class IdempotencyKeyReusedException extends AppException {
+  constructor() {
+    super(
+      ErrorCode.IDEMPOTENCY_KEY_REUSED,
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'This Idempotency-Key was already used for an order with a different shipping address; use a new key for a different request',
+    );
+  }
+}
+
 export class UnauthorizedAppException extends AppException {
   constructor(message = 'Authentication required', code: ErrorCode = ErrorCode.UNAUTHORIZED) {
     super(code, HttpStatus.UNAUTHORIZED, message);

@@ -119,12 +119,17 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # Consumes the order queue (mock payment, stale-order sweeper). No HTTP, so no healthcheck.
+  # Consumes the order queue (mock payment, stale-order sweeper) and deletes uploaded pictures that
+  # no product uses any more. No HTTP, so no healthcheck.
   worker:
     image: mini-marketplace-worker
     build: *api-build
     command: ['node', 'dist/worker.js']
     environment: *api-environment
+    volumes:
+      # The pictures the API writes: the cleanup has to see them to delete the unused ones. Without
+      # this mount it finds nothing and deletes nothing, so the volume just keeps growing.
+      - uploads:/data/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -156,5 +161,5 @@ services:
 volumes:
   pgdata:
   redisdata:
-  # Product images uploaded through the admin panel; written by the API only.
+  # Product images uploaded through the admin panel; written by the API, cleaned up by the worker.
   uploads:

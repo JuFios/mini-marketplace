@@ -3,6 +3,7 @@ import { escapeLike } from '../../common/prisma/escape-like';
 import { whereLive } from '../../common/prisma/where-live';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import { UPLOADS_URL_PREFIX } from '../../infra/storage/local-disk-image-storage';
 import type { ProductStatusFilter } from './dto/admin-product-query.dto';
 import type { ProductSort } from './dto/product-query.dto';
 import type { ProductWithCategory } from './mappers/to-product-response';
@@ -147,6 +148,18 @@ export class ProductsRepository {
       data: { deletedAt: null },
       include: WITH_CATEGORY,
     });
+  }
+
+  /**
+   * Every uploaded picture some product points to, archived products included: an archived
+   * product can be restored, and then it needs its picture.
+   */
+  async findUploadedImageUrls(): Promise<string[]> {
+    const rows = await this.prisma.product.findMany({
+      where: { imageUrl: { startsWith: `${UPLOADS_URL_PREFIX}/` } },
+      select: { imageUrl: true },
+    });
+    return rows.flatMap((row) => (row.imageUrl === null ? [] : [row.imageUrl]));
   }
 
   findStockState(id: string): Promise<{ stock: number; deletedAt: Date | null } | null> {
