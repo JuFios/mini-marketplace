@@ -3,10 +3,15 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { OrderStatus, Prisma, Role } from '../src/generated/prisma/client';
 import { PrismaService } from '../src/infra/prisma/prisma.service';
+import {
+  AnalyticsRepository,
+  type SaleLineRow,
+} from '../src/modules/analytics/analytics.repository';
 import type {
   SalesByDayResponse,
   SummaryResponse,
 } from '../src/modules/analytics/dto/analytics.response.dto';
+import { SALES_REPORT_BATCH_SIZE } from '../src/modules/analytics/sales-report.service';
 import { createUserWithToken, TestUser } from './helpers/auth-helpers';
 import { createTestApp, httpServer } from './helpers/create-test-app';
 import { resetDb } from './helpers/reset-db';
@@ -424,6 +429,34 @@ describe('analytics (e2e)', () => {
       const response = await get('sales-report.csv?from=2024-07-01&to=2024-07-01').expect(200);
 
       expect(response.text).toBe(`${HEADER}\r\n`);
+    });
+
+    it('fails the download when a later batch cannot be read, instead of ending it early', async () => {
+      // A full first batch, so the report asks for a second one, and that read hits an outage.
+      const firstBatch: SaleLineRow[] = Array.from({ length: SALES_REPORT_BATCH_SIZE }, (_, i) => ({
+        orderId: oid(1),
+        createdAt: new Date('2024-09-01T10:00:00.000Z'),
+        status: OrderStatus.COMPLETED,
+        customerEmail: 'ann@example.com',
+        itemId: iid(1, i + 1),
+        productId: pid(1),
+        productName: 'Alpha',
+        quantity: 1,
+        unitPrice: new Prisma.Decimal('1.50'),
+        lineTotal: new Prisma.Decimal('1.50'),
+      }));
+      const find = jest
+        .spyOn(app.get(AnalyticsRepository), 'findSaleLines')
+        .mockResolvedValueOnce(firstBatch)
+        .mockRejectedValueOnce(new Error('connection to the database lost'));
+
+      try {
+        // Ended normally, the response would arrive as a 200 holding only the first batch.
+        await expect(get('sales-report.csv?from=2024-09-01&to=2024-09-01')).rejects.toThrow();
+        expect(find).toHaveBeenCalledTimes(2);
+      } finally {
+        find.mockRestore();
+      }
     });
   });
 

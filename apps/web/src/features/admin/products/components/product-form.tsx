@@ -123,7 +123,7 @@ export function ProductForm({
           <div className="min-w-0 flex-1 space-y-3">
             <FormField
               label="Image address"
-              hint="An uploaded image or an http(s) link."
+              hint="An uploaded image or an https link."
               error={errors.imageUrl?.message}
             >
               {(field) => <Input placeholder="https://…" {...field} {...register('imageUrl')} />}

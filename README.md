@@ -210,7 +210,7 @@ Swagger UI at `/api/docs` describes every endpoint and is usable as is: log in w
 | Admin     | `/admin/products` (CRUD, stock adjustments, archive and restore, image upload), `/admin/categories`, `/admin/orders` (list, status change) |
 | Analytics | `GET /admin/analytics/summary`, `/sales-by-day`, `/sales-report.csv` (streamed, formula-injection safe)                                     |
 
-All paths are under `/api/v1`. Lists are paginated (`page`, `limit`, with a cap on `limit`). Anything under `/admin` needs the administrator role.
+All paths are under `/api/v1`. Lists are paginated (`page` and `limit`, both capped). Anything under `/admin` needs the administrator role.
 
 ## Configuration
 

@@ -24,6 +24,10 @@ describe('ProductQueryDto', () => {
     expect(((await parse({ inStock: 'false' })) as ProductQueryDto).inStock).toBe(false);
   });
 
+  it('accepts the last page the cap allows', async () => {
+    expect(((await parse({ page: '100000' })) as ProductQueryDto).page).toBe(100_000);
+  });
+
   it('accepts equal bounds, zero and the maximum', async () => {
     expect(await parse({ minPrice: '10', maxPrice: '10' })).toBeInstanceOf(ProductQueryDto);
     expect(await parse({ minPrice: '0' })).toBeInstanceOf(ProductQueryDto);
@@ -44,6 +48,9 @@ describe('ProductQueryDto', () => {
     [{ inStock: '1' }, 'inStock'],
     [{ limit: '101' }, 'limit'],
     [{ page: '0' }, 'page'],
+    [{ page: '100001' }, 'page'],
+    // An integer to the validator, but an offset that overflows 64 bits.
+    [{ page: '1e20' }, 'page'],
     [{ categoryId: 'x' }, 'categoryId'],
     [{ search: '' }, 'search'],
     [{ unknown: '1' }, 'unknown'],

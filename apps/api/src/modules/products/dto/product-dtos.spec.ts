@@ -74,6 +74,8 @@ describe('CreateProductDto', () => {
     ['a description over 5000 characters', { description: 'x'.repeat(5001) }, 'description'],
     ['a category id that is not a UUID', { categoryId: '42' }, 'categoryId'],
     ['an image URL with a javascript: scheme', { imageUrl: 'javascript:alert(1)' }, 'imageUrl'],
+    // The web app's CSP loads images over https only.
+    ['an image URL over plain http', { imageUrl: 'http://cdn.example.com/a.png' }, 'imageUrl'],
     ['an image path outside /uploads', { imageUrl: '/etc/passwd' }, 'imageUrl'],
     ['an /uploads path with traversal', { imageUrl: '/uploads/../secret.png' }, 'imageUrl'],
     [

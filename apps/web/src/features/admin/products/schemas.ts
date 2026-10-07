@@ -7,10 +7,11 @@ import { toCents } from '@/shared/lib/money';
 const MAX_PRICE_CENTS = 1_000_000_00;
 const MAX_STOCK = 1_000_000;
 const PRICE = /^\d{1,7}(\.\d{1,2})?$/;
-// What the API accepts as `imageUrl`: an uploaded file's path, or an absolute http(s) address.
+// What the API accepts as `imageUrl`: an uploaded file's path, or an absolute https address (the
+// app's Content-Security-Policy would block a picture served over plain http).
 const UPLOADED_IMAGE =
   /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/i;
-const WEB_URL = /^https?:\/\/\S+$/i;
+const WEB_URL = /^https:\/\/\S+$/i;
 
 export function isImageUrl(value: string): boolean {
   return value.length <= 2048 && (UPLOADED_IMAGE.test(value) || WEB_URL.test(value));
@@ -45,7 +46,7 @@ export const productSchema = z.object({
     .trim()
     .refine(
       (value) => value === '' || isImageUrl(value),
-      'Use an uploaded image or an http(s) address',
+      'Use an uploaded image or an https address',
     ),
 });
 

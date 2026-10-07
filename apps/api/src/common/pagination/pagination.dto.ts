@@ -3,13 +3,20 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
+/**
+ * Far past any real list, and it keeps the offset (page × limit) a modest integer: `page=1e20`
+ * passes as an integer, but its offset does not fit the 64 bits Prisma accepts and would fail as a
+ * 500 instead of a 400. The SPA clamps page numbers from the URL to the same value.
+ */
+export const MAX_PAGE = 100_000;
 
-/** `page` and `limit` of every list endpoint; the cap on `limit` bounds the cost of a request. */
+/** `page` and `limit` of every list endpoint; the caps on both bound the cost of a request. */
 export class PaginationQueryDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE)
   page: number = 1;
 
   @IsOptional()

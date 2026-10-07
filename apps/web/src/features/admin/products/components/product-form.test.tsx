@@ -58,15 +58,15 @@ describe('ProductForm validation', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('rejects a picture address that is neither an upload nor an http(s) link', async () => {
+  it('rejects a picture address that is neither an upload nor an https link', async () => {
     const { onSubmit } = setup();
     await fillRequired();
-    await userEvent.type(screen.getByLabelText('Image address'), 'ftp://x.test/a.png');
+    await userEvent.type(screen.getByLabelText('Image address'), 'http://x.test/a.png');
 
     await userEvent.click(screen.getByRole('button', { name: 'Create product' }));
 
     expect(
-      await screen.findByText('Use an uploaded image or an http(s) address'),
+      await screen.findByText('Use an uploaded image or an https address'),
     ).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });

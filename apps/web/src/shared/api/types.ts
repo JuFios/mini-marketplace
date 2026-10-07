@@ -45,7 +45,7 @@ export interface Product {
   price: string;
   stock: number;
   inStock: boolean;
-  /** A path under `/uploads` or an absolute http(s) URL. */
+  /** A path under `/uploads` or an absolute https URL. */
   imageUrl: string | null;
   category: { id: string; name: string };
   createdAt: string;

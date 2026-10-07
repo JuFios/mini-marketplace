@@ -1,5 +1,6 @@
 import { Controller, Get, Query, StreamableFile } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
+import { PinoLogger } from 'nestjs-pino';
 import { Role } from '../../generated/prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AnalyticsService } from './analytics.service';
@@ -20,7 +21,11 @@ export class AnalyticsController {
   constructor(
     private readonly analytics: AnalyticsService,
     private readonly report: SalesReportService,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    // See AuthService: `@InjectPinoLogger` would make module import order significant.
+    this.logger.setContext(AnalyticsController.name);
+  }
 
   @Get('summary')
   @ApiOperation({
@@ -52,6 +57,14 @@ export class AnalyticsController {
     return new StreamableFile(stream, {
       type: 'text/csv; charset=utf-8',
       disposition: `attachment; filename="${filename}"`,
+    }).setErrorHandler((error, response) => {
+      // A batch after the first failed while the file was being sent. The status line left with
+      // the first bytes, so the exception filter cannot answer any more, and Nest's default
+      // handler would end the response normally: the client would save a shorter file that looks
+      // complete, and nothing would be logged. Dropping the connection makes the download fail.
+      this.logger.error({ event: 'analytics.report_failed', err: error }, 'Sales report aborted');
+      // Typed loosely by Nest; it is Node's response, which can drop its connection.
+      (response as typeof response & { destroy(): void }).destroy();
     });
   }
 }

@@ -70,7 +70,11 @@ describe('productSchema', () => {
     ).toBeUndefined();
     expect(problem({ imageUrl: 'https://images.example.com/a.png' }, 'imageUrl')).toBeUndefined();
     expect(problem({ imageUrl: 'javascript:alert(1)' }, 'imageUrl')).toBe(
-      'Use an uploaded image or an http(s) address',
+      'Use an uploaded image or an https address',
+    );
+    // The app's Content-Security-Policy would never load it.
+    expect(problem({ imageUrl: 'http://images.example.com/a.png' }, 'imageUrl')).toBe(
+      'Use an uploaded image or an https address',
     );
     expect(problem({ imageUrl: '/uploads/../etc/passwd' }, 'imageUrl')).toBeDefined();
   });

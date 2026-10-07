@@ -163,6 +163,7 @@ describe('public catalog (e2e)', () => {
       ['an unknown sort', '?sort=popularity'],
       ['an unknown parameter', '?colour=red'],
       ['a limit above 100', '?limit=101'],
+      ['a page number past the cap', '?page=1e20'],
       ['a malformed category id', '?categoryId=abc'],
       ['a malformed inStock', '?inStock=maybe'],
     ])('rejects %s with 400 VALIDATION_FAILED', async (_label, query) => {

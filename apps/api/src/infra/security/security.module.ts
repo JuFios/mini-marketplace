@@ -1,8 +1,7 @@
 import { ExecutionContext, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
-import type { Request } from 'express';
-import { API_PREFIX } from '../../common/api-prefix';
+import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthModule } from '../../modules/auth/auth.module';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../modules/auth/guards/roles.guard';
@@ -11,10 +10,11 @@ import { AppThrottlerGuard } from './app-throttler.guard';
 import { RedisThrottlerStorage } from './redis-throttler.storage';
 import type { Redis } from 'ioredis';
 
-const LOGIN_PATH = `/${API_PREFIX}/auth/login`;
-
+// Recognised by its handler, not by its URL: Express matches paths case-insensitively and with or
+// without a trailing slash, so `/auth/login/` and `/AUTH/LOGIN` reach the same handler, and a
+// comparison of paths would let them skip the per-email limit.
 const isLogin = (context: ExecutionContext): boolean =>
-  context.switchToHttp().getRequest<Request>().path === LOGIN_PATH;
+  context.getHandler() === AuthController.prototype.login;
 
 /**
  * Rate limiting and access control. The three global guards are listed here, in one array, because

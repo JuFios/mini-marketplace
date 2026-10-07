@@ -150,6 +150,23 @@ describe('authentication (e2e)', () => {
       expect(blocked.headers['retry-after']).toBeDefined();
     });
 
+    it('counts every spelling of the login path towards that limit: trailing slash, letter case', async () => {
+      await register(app);
+      // Express routes all of these to the login handler.
+      const spellings = ['/api/v1/auth/login/', '/API/V1/AUTH/LOGIN', '/api/v1/Auth/Login/'];
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await api()
+          .post(spellings[attempt % spellings.length])
+          .send({ email: 'ann@example.com', password: 'wrong-pass1' })
+          .expect(401);
+      }
+
+      await api()
+        .post('/api/v1/auth/login/')
+        .send({ email: 'ann@example.com', password: PASSWORD })
+        .expect(429);
+    });
+
     it('does not let one email exhaust the budget of another', async () => {
       await register(app);
       for (let attempt = 1; attempt <= 5; attempt++) {
