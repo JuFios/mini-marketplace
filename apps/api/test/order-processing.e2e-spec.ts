@@ -207,6 +207,19 @@ describe('order processing (e2e)', () => {
       expect(await queue.getJobCountByTypes('waiting', 'active', 'delayed')).toBe(0);
     });
 
+    it('logs errors of the queue the API and the worker share once, not through console.error', () => {
+      const queue = app.get<Queue>(getQueueToken(ORDERS_QUEUE));
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      try {
+        queue.emit('error', new Error('connect ECONNREFUSED 127.0.0.1:6379'));
+
+        expect(consoleError).not.toHaveBeenCalled();
+        expect(queue.listenerCount('error')).toBe(1);
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
     it('processes several orders, one payment each, none of them twice', async () => {
       const mouse = await product('Mouse', '19.99', 20);
       const buyers = await Promise.all(

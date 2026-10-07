@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { logQueueErrors } from '../../../infra/queue/queue-error-logging';
 import { ProductsRepository } from '../products.repository';
 import { IMAGE_CLEANUP_QUEUE } from './image-cleanup.constants';
 import { ImageCleanupProcessor } from './image-cleanup.processor';
@@ -12,6 +13,11 @@ import { OrphanImageSweeper } from './orphan-image.sweeper';
  */
 @Module({
   imports: [BullModule.registerQueue({ name: IMAGE_CLEANUP_QUEUE })],
-  providers: [ProductsRepository, OrphanImageSweeper, ImageCleanupProcessor],
+  providers: [
+    ProductsRepository,
+    OrphanImageSweeper,
+    ImageCleanupProcessor,
+    logQueueErrors(IMAGE_CLEANUP_QUEUE, 'images.queue_error'),
+  ],
 })
 export class ImageCleanupWorkerModule {}
