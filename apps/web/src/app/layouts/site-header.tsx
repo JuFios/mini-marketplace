@@ -6,6 +6,13 @@ import { useAuth } from '@/features/auth/use-auth';
 import { buttonStyles } from '@/shared/ui';
 import { cn } from '@/shared/lib/cn';
 
+function navLinkStyles({ isActive }: { isActive: boolean }): string {
+  return cn(
+    'text-sm font-medium hover:text-brand-600',
+    isActive ? 'text-brand-600' : 'text-slate-700',
+  );
+}
+
 export function SiteHeader() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -28,19 +35,18 @@ export function SiteHeader() {
           </Link>
           <nav aria-label="Main" className="flex items-center gap-6">
             {user?.role === 'ADMIN' ? (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  cn(
-                    'text-sm font-medium hover:text-brand-600',
-                    isActive ? 'text-brand-600' : 'text-slate-700',
-                  )
-                }
-              >
+              <NavLink to="/admin" className={navLinkStyles}>
                 Admin
               </NavLink>
             ) : (
-              <CartLink />
+              <>
+                {user && (
+                  <NavLink to="/orders" className={navLinkStyles}>
+                    Orders
+                  </NavLink>
+                )}
+                <CartLink />
+              </>
             )}
           </nav>
         </div>

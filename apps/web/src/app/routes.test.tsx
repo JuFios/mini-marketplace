@@ -99,6 +99,26 @@ describe('role-based routes', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 
+  it.each(['/checkout', '/orders', '/orders/3f2a9c1d-5b7e-4c1a-9d3e-0a1b2c3d4e5f'])(
+    'keeps an administrator out of %s',
+    async (path) => {
+      const { router } = renderApp(path, ADMIN);
+
+      expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe('/');
+    },
+  );
+
+  it.each(['/checkout', '/orders', '/orders/3f2a9c1d-5b7e-4c1a-9d3e-0a1b2c3d4e5f'])(
+    'sends an anonymous visitor from %s to the login and back',
+    async (path) => {
+      const { router } = renderApp(path);
+
+      expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument();
+      expect(router.state.location.search).toBe(`?returnTo=${encodeURIComponent(path)}`);
+    },
+  );
+
   it('sends an anonymous visitor from the admin area to the login', async () => {
     const { router } = renderApp('/admin');
 

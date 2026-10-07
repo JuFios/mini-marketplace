@@ -74,3 +74,43 @@ export interface Cart {
   /** Some line is unavailable or above stock, so checkout would refuse it. */
   hasIssues: boolean;
 }
+
+export const ORDER_STATUSES = ['NEW', 'PROCESSING', 'SHIPPED', 'COMPLETED', 'CANCELLED'] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'VOIDED';
+export type CancelReason = 'CUSTOMER_REQUEST' | 'ADMIN_ACTION' | 'PAYMENT_FAILED';
+
+export interface OrderItem {
+  productId: string;
+  /** The name when the order was placed; later edits do not change it. */
+  productName: string;
+  /** The price paid per unit. */
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export interface Order {
+  id: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  cancelReason: CancelReason | null;
+  totalAmount: string;
+  shippingAddress: string;
+  items: OrderItem[];
+  createdAt: string;
+  updatedAt: string;
+  /** What the caller may move the order to right now; for a customer, `CANCELLED` or nothing. */
+  allowedTransitions: OrderStatus[];
+}
+
+export interface OrderSummary {
+  id: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  totalAmount: string;
+  /** Number of lines (distinct products), not of units. */
+  itemsCount: number;
+  createdAt: string;
+}
