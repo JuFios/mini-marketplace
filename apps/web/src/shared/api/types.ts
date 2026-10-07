@@ -114,3 +114,57 @@ export interface OrderSummary {
   itemsCount: number;
   createdAt: string;
 }
+
+export interface OrderCustomer {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface AdminOrderSummary extends OrderSummary {
+  customer: OrderCustomer;
+}
+
+export interface AdminOrder extends Order {
+  customer: OrderCustomer;
+}
+
+/** A product as an administrator sees it: archived ones included. */
+export interface AdminProduct extends Product {
+  /** Set while the product is archived. */
+  deletedAt: string | null;
+}
+
+export interface StockAdjustmentResult {
+  id: string;
+  stock: number;
+}
+
+export interface TopProduct {
+  productId: string;
+  name: string;
+  quantitySold: number;
+  revenue: string;
+}
+
+export interface SalesSummary {
+  from: string;
+  to: string;
+  totalRevenue: string;
+  ordersCount: number;
+  averageOrderValue: string;
+  topProducts: TopProduct[];
+}
+
+export interface SalesDay {
+  /** `YYYY-MM-DD`, UTC. */
+  date: string;
+  revenue: string;
+  ordersCount: number;
+}
+
+export interface SalesByDay {
+  from: string;
+  to: string;
+  days: SalesDay[];
+}

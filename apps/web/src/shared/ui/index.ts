@@ -1,6 +1,7 @@
 export { Alert, type AlertProps } from './alert';
 export { Badge, type BadgeProps } from './badge';
 export { Button, buttonStyles, type ButtonProps } from './button';
+export { ConfirmDialog, type ConfirmDialogProps } from './confirm-dialog';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { ErrorState, type ErrorStateProps } from './error-state';
 export { FormField, type FieldControlProps, type FormFieldProps } from './form-field';
@@ -15,3 +16,4 @@ export { Spinner, type SpinnerProps } from './spinner';
 export { SplashScreen } from './splash-screen';
 export { Textarea, type TextareaProps } from './textarea';
 export { Thumbnail, type ThumbnailProps } from './thumbnail';
+export { Table, Td, Th } from './table';

@@ -64,6 +64,48 @@ export const routes: RouteObject[] = [
                     .DashboardPage,
                 }),
               },
+              {
+                path: 'products',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/products/pages/products-page'))
+                    .ProductsPage,
+                }),
+              },
+              {
+                path: 'products/new',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/products/pages/product-form-pages'))
+                    .NewProductPage,
+                }),
+              },
+              {
+                path: 'products/:id/edit',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/products/pages/product-form-pages'))
+                    .EditProductPage,
+                }),
+              },
+              {
+                path: 'categories',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/categories/pages/categories-page'))
+                    .CategoriesPage,
+                }),
+              },
+              {
+                path: 'orders',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/orders/pages/orders-page'))
+                    .AdminOrdersPage,
+                }),
+              },
+              {
+                path: 'orders/:id',
+                lazy: async () => ({
+                  Component: (await import('@/features/admin/orders/pages/order-page'))
+                    .AdminOrderPage,
+                }),
+              },
             ],
           },
         ],
