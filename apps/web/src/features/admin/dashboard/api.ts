@@ -29,6 +29,6 @@ export async function fetchSalesReport(
     params: range,
     responseType: 'blob',
   });
-  // The name the API suggests in Content-Disposition.
+  // Built from the range, the same way the API names the file in its Content-Disposition.
   return { blob: data, filename: `sales-${range.from}-${range.to}.csv` };
 }

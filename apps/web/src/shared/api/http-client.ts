@@ -34,6 +34,22 @@ function isAuthEndpoint(url: string | undefined): boolean {
   return url?.startsWith('/auth/') ?? false;
 }
 
+/**
+ * A request made with `responseType: 'blob'` (a file download) receives its error body as a Blob
+ * too, which the browser types with the response's Content-Type. Reading the API's JSON envelope
+ * out of it gives the error the server's code, message and request id, like any other call.
+ */
+async function readJsonBlobErrorBody(error: unknown): Promise<void> {
+  if (!axios.isAxiosError(error) || !error.response) return;
+  const body: unknown = error.response.data;
+  if (!(body instanceof Blob) || !body.type.startsWith('application/json')) return;
+  try {
+    error.response.data = JSON.parse(await body.text()) as unknown;
+  } catch {
+    // Not JSON after all: the Blob stays, and `toApiError` keeps just the status.
+  }
+}
+
 export function createApiClient(options: ApiClientOptions): ApiClient {
   const http = axios.create({
     baseURL: options.baseURL,
@@ -78,9 +94,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     return http.request(config);
   }
 
-  http.interceptors.response.use(undefined, (error: unknown) => {
+  http.interceptors.response.use(undefined, async (error: unknown) => {
     // Aborted requests (TanStack Query cancels superseded ones) must stay what they are.
     if (axios.isCancel(error)) throw error;
+    // Before anything reads the body: a 401 whose refresh fails is reported with it, too.
+    await readJsonBlobErrorBody(error);
 
     if (
       axios.isAxiosError(error) &&

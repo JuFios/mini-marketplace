@@ -214,3 +214,69 @@ describe('error normalisation', () => {
     await expect(http.get('/things')).rejects.toMatchObject({ status: 502, code: 'UNKNOWN_ERROR' });
   });
 });
+
+describe('errors of file downloads', () => {
+  // A request made with `responseType: 'blob'` receives every body as a Blob, error bodies too.
+  const blobOf = (body: unknown, type: string) => new Blob([JSON.stringify(body)], { type });
+  const download = (http: ReturnType<typeof setup>['http']) =>
+    http.get<Blob>('/report.csv', { responseType: 'blob' });
+
+  it.each([
+    [403, 'FORBIDDEN'],
+    [429, 'TOO_MANY_REQUESTS'],
+  ])('reads the API error envelope out of a %i Blob body', async (status, code) => {
+    const { http } = setup(() => {
+      const { data } = apiError(status, code);
+      return { status, data: blobOf(data, 'application/json; charset=utf-8') };
+    });
+
+    const error: unknown = await download(http).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status, code, message: `${code} message`, requestId: 'req-1' });
+  });
+
+  it('keeps just the status of a Blob body that is not JSON', async () => {
+    const { http } = setup(() => ({
+      status: 502,
+      data: new Blob(['<html>Bad gateway</html>'], { type: 'text/html' }),
+    }));
+
+    await expect(download(http)).rejects.toMatchObject({ status: 502, code: 'UNKNOWN_ERROR' });
+  });
+
+  it('keeps just the status of a JSON Blob body that does not parse', async () => {
+    const { http } = setup(() => ({
+      status: 500,
+      data: new Blob(['{"code":'], { type: 'application/json' }),
+    }));
+
+    await expect(download(http)).rejects.toMatchObject({ status: 500, code: 'UNKNOWN_ERROR' });
+  });
+
+  it('still refreshes an expired token and replays the download', async () => {
+    const file = new Blob(['order_id\r\n'], { type: 'text/csv' });
+    const { http, session, server } = setup((request) => {
+      if (request.url === '/auth/refresh') return { status: 200, data: authResponse('token-1') };
+      if (request.authorization === 'Bearer token-1') return { status: 200, data: file };
+      return { status: 401, data: blobOf(apiError(401, 'UNAUTHORIZED').data, 'application/json') };
+    });
+    session.start(authResponse('expired'));
+
+    const response = await download(http);
+
+    expect(response.data).toBe(file);
+    expect(server.callsTo('/auth/refresh')).toHaveLength(1);
+  });
+
+  it('reports a session that cannot be refreshed with the API’s 401', async () => {
+    const { http, session } = setup((request) =>
+      request.url === '/auth/refresh'
+        ? apiError(401, 'REFRESH_TOKEN_INVALID')
+        : { status: 401, data: blobOf(apiError(401, 'UNAUTHORIZED').data, 'application/json') },
+    );
+    session.start(authResponse('expired'));
+
+    await expect(download(http)).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
+  });
+});
