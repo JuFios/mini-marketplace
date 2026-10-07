@@ -12,6 +12,8 @@ vi.mock('@/features/catalog/api', () => ({
   fetchCategories: () => Promise.resolve([]),
 }));
 // The admin pages are lazy-loaded here too; they only need to find answers (none of their data matters).
+// The chart library is a heavy first import, and these tests are about routing, not drawing.
+vi.mock('@/features/admin/dashboard/components/sales-chart', () => ({ SalesChart: () => null }));
 vi.mock('@/features/admin/dashboard/api', () => ({
   fetchSalesSummary: () => new Promise(() => undefined),
   fetchSalesByDay: () => new Promise(() => undefined),

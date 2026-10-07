@@ -3,6 +3,7 @@ import { LoggerModule } from 'nestjs-pino';
 import type { SerializedRequest, SerializedResponse } from 'pino';
 import { AppConfigService } from '../../config/app-config.service';
 import { assignRequestId } from '../../common/request-id';
+import { isHealthCheck } from './health-check-request';
 import { LOG_REDACT_CENSOR, LOG_REDACT_PATHS } from './redaction';
 
 @Module({
@@ -17,6 +18,8 @@ import { LOG_REDACT_CENSOR, LOG_REDACT_PATHS } from './redaction';
           // instead of repeating the whole serialised request on every line.
           quietReqLogger: true,
           customAttributeKeys: { reqId: 'requestId' },
+          // Orchestrators probe /health every few seconds; a line for each would bury the log.
+          autoLogging: { ignore: (req) => isHealthCheck(req.url) },
           customLogLevel: (_req, res, error) => {
             if (error || res.statusCode >= 500) return 'error';
             return res.statusCode >= 400 ? 'warn' : 'info';

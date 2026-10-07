@@ -82,7 +82,8 @@ describe('the admin order table', () => {
     await userEvent.type(screen.getByLabelText('Customer email'), 'ann@');
 
     await waitFor(() => expect(router.state.location.search).toBe('?email=ann%40'));
-    expect(lastQuery()).toMatchObject({ customerEmail: 'ann@' });
+    // The request follows the URL by one render.
+    await waitFor(() => expect(lastQuery()).toMatchObject({ customerEmail: 'ann@' }));
   });
 
   it('filters by date range', async () => {

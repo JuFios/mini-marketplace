@@ -105,3 +105,35 @@ jobs:
           npx prisma db seed
         working-directory: apps/api
       - run: npm run test:e2e -w api
+
+  docker:
+    name: Docker images and smoke test
+    # Only worth the minutes once everything else is green.
+    needs: [quality, unit-tests, web, api-tests]
+    runs-on: ubuntu-latest
+    env:
+      # The mock payment provider approves every order at once, so the smoke test can insist on
+      # a paid order instead of tolerating a random decline.
+      PAYMENT_MOCK_FAILURE_RATE: '0'
+      PAYMENT_MOCK_DELAY_MS: '0'
+    steps:
+      - uses: actions/checkout@v7
+      # Only for the smoke script; the application itself runs in the containers.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Build the images
+        run: docker compose build
+      # A fresh clone with no .env: this is exactly what a reader of the README does. `--wait`
+      # returns once every service with a healthcheck is healthy and `migrate` has finished.
+      - name: Start the stack
+        run: docker compose up -d --wait --wait-timeout 180
+      - name: Smoke test
+        # The ports are published on 127.0.0.1 only; naming it avoids depending on how `localhost` resolves.
+        run: node scripts/smoke.mjs http://127.0.0.1:8080
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

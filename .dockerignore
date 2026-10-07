@@ -1,0 +1,32 @@
+# What the image builds do not need, and what must never end up in an image layer.
+.git
+.github
+.claude
+.playwright-mcp
+.vscode
+.idea
+.DS_Store
+
+# Secrets and per-machine settings
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Rebuilt inside the images
+**/node_modules
+**/dist
+**/coverage
+**/storybook-static
+**/*.tsbuildinfo
+apps/api/src/generated
+
+# Runtime data
+apps/api/uploads
+**/*.log
+
+# Not part of any image (compose mounts docker/ itself)
+docker
+scripts
+*.md
+docs
