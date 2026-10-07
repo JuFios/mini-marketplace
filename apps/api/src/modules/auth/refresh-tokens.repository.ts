@@ -41,4 +41,16 @@ export class RefreshTokensRepository {
     });
     return count;
   }
+
+  /**
+   * Deletes up to `limit` tokens that expired before `before` and returns how many it deleted.
+   * The limit keeps each statement short however large the backlog is.
+   */
+  deleteExpiredBefore(before: Date, limit: number): Promise<number> {
+    return this.prisma.$executeRaw`
+      DELETE FROM refresh_tokens
+      WHERE id IN (
+        SELECT id FROM refresh_tokens WHERE expires_at < ${before}::timestamptz LIMIT ${limit}::int
+      )`;
+  }
 }

@@ -5,6 +5,7 @@ import { PrismaModule } from './infra/prisma/prisma.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { TokenCleanupWorkerModule } from './modules/auth/token-cleanup/token-cleanup-worker.module';
 import { OrderWorkerModule } from './modules/orders/order-worker.module';
 import { ImageCleanupWorkerModule } from './modules/products/image-cleanup/image-cleanup-worker.module';
 
@@ -19,6 +20,7 @@ import { ImageCleanupWorkerModule } from './modules/products/image-cleanup/image
     StorageModule,
     OrderWorkerModule,
     ImageCleanupWorkerModule,
+    TokenCleanupWorkerModule,
   ],
 })
 export class WorkerModule {}

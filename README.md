@@ -48,7 +48,7 @@ Things worth knowing:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web`              | nginx. Serves the React build and forwards `/api` and `/uploads` to the API, so the browser sees one origin: no CORS, plain cookies. Sets the CSP and other headers. The only published port. |
 | `api`              | The NestJS HTTP API.                                                                                                                                                                         |
-| `worker`           | The same image running `node dist/worker.js`: the BullMQ consumer that pays for orders, the sweeper for orders whose job was lost, and the cleanup of unused product pictures.              |
+| `worker`           | The same image running `node dist/worker.js`: the BullMQ consumer that pays for orders, the sweeper for lost order jobs, and the cleanup of unused pictures and expired refresh tokens.      |
 | `migrate`          | Runs once: applies the migrations and seeds. `api` and `worker` wait for it.                                                                                                                  |
 | `postgres`, `redis` | The data stores. Their ports are not published unless `POSTGRES_PORT` / `REDIS_PORT` are set (see [Development](#development)).                                                              |
 
@@ -119,7 +119,7 @@ The public catalogue (list, product, categories) is cached in Redis with a **ver
 
 ### Authentication
 
-Access token (JWT, 15 minutes) in the `Authorization` header, kept in memory by the SPA and never in web storage. Refresh token (JWT, 7 days, a different secret) in an `HttpOnly`, `SameSite=Strict` cookie scoped to the auth path, persisted server-side by id. Every refresh **rotates** the token, and presenting a used one is treated as theft: the whole token family is revoked. Passwords use argon2id, a wrong password and an unknown email give the same answer, and login is rate limited. Roles come only from the verified token, and a customer's queries always filter by the token's user id, so another customer's order is a `404`, not a `403`.
+Access token (JWT, 15 minutes) in the `Authorization` header, kept in memory by the SPA and never in web storage. Refresh token (JWT, 7 days, a different secret) in an `HttpOnly`, `SameSite=Strict` cookie scoped to the auth path, persisted server-side by id. Every refresh **rotates** the token, and presenting a used one is treated as theft: the whole token family is revoked. A daily job in the worker deletes the rows of expired tokens; a used token's row stays until the token expires, because that row is what recognises a replay. Passwords use argon2id, a wrong password and an unknown email give the same answer, and login is rate limited. Roles come only from the verified token, and a customer's queries always filter by the token's user id, so another customer's order is a `404`, not a `403`.
 
 ### Frontend
 
@@ -249,7 +249,6 @@ Before exposing the stack to anyone else: replace the JWT secrets and `ADMIN_PAS
 
 - **Payments are a mock**, and so is the "order confirmation sent" email: both are only log events. A real integration needs provider webhooks and reconciliation.
 - **One Redis** serves the cache, the queue and the rate-limit counters, with `noeviction` because BullMQ needs it. In production the cache would be a separate instance that is allowed to evict.
-- **Refresh tokens are never deleted.** Expired and revoked rows stay in the table; a scheduled cleanup job is missing.
 - **Search is `ILIKE` with a trigram index.** It is fine for this catalogue and measured honestly above, but real search wants full-text search or a search engine. Every list also runs a `count`, which the cache hides.
 - **Every checkout and cancellation invalidates the whole catalogue cache**, which lowers the hit rate when many people are buying. The alternative is to cache products without stock and read stock live.
 - **Prices:** the cart always shows current prices and the order takes the price at checkout, but there is no "the total changed, confirm?" step.
