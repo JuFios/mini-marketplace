@@ -21,7 +21,21 @@ export function configureApp(app: INestApplication): void {
   const config = app.get(AppConfigService);
 
   app.useLogger(app.get(Logger));
-  app.use(helmet());
+  // Behind a reverse proxy every connection comes from the proxy: without this the rate limiter
+  // would see one client and give everybody a single shared budget.
+  const server = app.getHttpAdapter().getInstance() as express.Application;
+  server.set('trust proxy', config.trustProxyHops);
+  // helmet's default policy ends with `upgrade-insecure-requests`: browsers then fetch every
+  // http:// subresource over https. Where the API is served over plain HTTP (a local run, the
+  // compose stack on localhost) nothing answers there, and Safari fails to load Swagger UI.
+  // COOKIE_SECURE is the setting that says the API is served over HTTPS.
+  app.use(
+    helmet(
+      config.cookieSecure
+        ? {}
+        : { contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } } },
+    ),
+  );
   // Only the refresh cookie is read from cookies; the access token travels in a header.
   app.use(cookieParser());
   // Uploaded images: public, outside the API prefix and the auth guards. File names are random

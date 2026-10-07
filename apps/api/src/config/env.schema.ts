@@ -22,6 +22,10 @@ export const baseEnvSchema = z.object({
   JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().min(1).default(604_800),
   // `Secure` cookies are only sent over HTTPS: enable wherever the API is served over TLS.
   COOKIE_SECURE: booleanFlag.default(false),
+  // How many reverse proxies stand between the clients and the API (0 = none: the API is
+  // reached directly). Only then is the client address read from `X-Forwarded-For`; a header
+  // from a direct client is never believed, so it cannot be used to dodge the rate limits.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   // Product images are stored on local disk and served from /uploads.
   UPLOAD_DIR: z.string().min(1).default('./uploads'),
   UPLOAD_MAX_BYTES: z.coerce.number().int().min(1).default(2_097_152),

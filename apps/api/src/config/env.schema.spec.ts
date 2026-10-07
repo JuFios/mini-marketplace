@@ -18,6 +18,7 @@ describe('validateEnv', () => {
       JWT_ACCESS_TTL_SECONDS: 900,
       JWT_REFRESH_TTL_SECONDS: 604800,
       COOKIE_SECURE: false,
+      TRUST_PROXY: 0,
       UPLOAD_DIR: './uploads',
       UPLOAD_MAX_BYTES: 2097152,
       CATALOG_CACHE_TTL_SECONDS: 120,
@@ -99,5 +100,20 @@ describe('validateEnv', () => {
     ['PAYMENT_MOCK_DELAY_MS', '30001'],
   ])('rejects %s=%s', (name, value) => {
     expect(() => validateEnv({ ...VALID, [name]: value })).toThrow(name);
+  });
+});
+
+describe('TRUST_PROXY', () => {
+  it('defaults to no proxy, so a forwarded-for header is never believed', () => {
+    expect(validateEnv(VALID).TRUST_PROXY).toBe(0);
+  });
+
+  it('is the number of proxy hops, read from a string', () => {
+    expect(validateEnv({ ...VALID, TRUST_PROXY: '1' }).TRUST_PROXY).toBe(1);
+    expect(validateEnv({ ...VALID, TRUST_PROXY: '10' }).TRUST_PROXY).toBe(10);
+  });
+
+  it.each(['-1', '1.5', '11', 'true', 'loopback'])('rejects %s', (value) => {
+    expect(() => validateEnv({ ...VALID, TRUST_PROXY: value })).toThrow('TRUST_PROXY');
   });
 });

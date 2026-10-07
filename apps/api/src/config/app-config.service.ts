@@ -51,6 +51,10 @@ export class AppConfigService {
     return this.config.get('COOKIE_SECURE', { infer: true });
   }
 
+  get trustProxyHops(): Env['TRUST_PROXY'] {
+    return this.config.get('TRUST_PROXY', { infer: true });
+  }
+
   get uploadDir(): Env['UPLOAD_DIR'] {
     return this.config.get('UPLOAD_DIR', { infer: true });
   }
