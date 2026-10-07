@@ -8,19 +8,27 @@ import { useCheckout } from '../queries';
 import type { ShippingValues } from '../schemas';
 import { useIdempotencyKey } from '../use-idempotency-key';
 
-/** What makes one purchase different from another: which products, how many of each. */
-function fingerprint(cart: Cart | undefined): string {
-  return cart?.items.map((item) => `${item.productId}:${item.quantity}`).join(',') ?? '';
+/**
+ * What makes one purchase different from another: which products, how many of each, and where
+ * they are sent. A product id never contains `|`, so the two parts cannot run into each other.
+ */
+function purchase(cart: Cart | undefined, shippingAddress: string): string {
+  const lines = cart?.items.map((item) => `${item.productId}:${item.quantity}`).join(',') ?? '';
+  return `${lines}|${shippingAddress}`;
 }
 
 export function CheckoutPage() {
   const cart = useCartQuery();
   const checkout = useCheckout();
   const navigate = useNavigate();
-  const nextKey = useIdempotencyKey(fingerprint(cart.data));
+  const nextKey = useIdempotencyKey();
 
   async function placeOrder({ shippingAddress }: ShippingValues) {
-    const order = await checkout.mutateAsync({ shippingAddress, idempotencyKey: nextKey() });
+    const order = await checkout.mutateAsync({
+      shippingAddress,
+      // Already trimmed by the form's schema, as the server trims it before comparing.
+      idempotencyKey: nextKey(purchase(cart.data, shippingAddress)),
+    });
     // Awaited, so the form stays busy until the order page is there: no second click can land in
     // between.
     await navigate(`/orders/${order.id}`);

@@ -35,6 +35,7 @@ const twoMice = cart([cartItem(MOUSE, 2)], { subtotal: '39.98' });
 const oneMouse = cart([cartItem(MOUSE, 1)], { subtotal: '19.99' });
 
 const ADDRESS = '12 Main Street, Springfield 12345';
+const NEW_ADDRESS = '99 Other Road, Shelbyville 54321';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function apiError(status: number, code: string, message = `${code} message`, details?: unknown) {
@@ -203,6 +204,37 @@ describe('when paying fails', () => {
     expect(placeOrder).toHaveBeenCalledTimes(2);
     const [first, second] = keysSent();
     expect(first).toMatch(UUID);
+    expect(second).toBe(first);
+  });
+
+  it('uses a new key when the address is changed before trying again, so the server cannot answer with the old address', async () => {
+    placeOrder.mockRejectedValueOnce(lostResponse()).mockResolvedValue(order());
+    renderApp('/checkout', CUSTOMER);
+    await fillAddressAndPay();
+    await screen.findByRole('alert');
+
+    const field = screen.getByLabelText(/Shipping address/);
+    await userEvent.clear(field);
+    await userEvent.type(field, NEW_ADDRESS);
+    await userEvent.click(screen.getByRole('button', { name: 'Pay (mock)' }));
+
+    await screen.findByRole('heading', { name: `Order ${ORDER_NUMBER}` });
+    expect(placeOrder).toHaveBeenLastCalledWith(NEW_ADDRESS, expect.stringMatching(UUID));
+    const [first, second] = keysSent();
+    expect(second).not.toBe(first);
+  });
+
+  it('keeps the key when only spaces around the address change', async () => {
+    placeOrder.mockRejectedValueOnce(lostResponse()).mockResolvedValue(order());
+    renderApp('/checkout', CUSTOMER);
+    await fillAddressAndPay();
+    await screen.findByRole('alert');
+
+    await userEvent.type(screen.getByLabelText(/Shipping address/), '   ');
+    await userEvent.click(screen.getByRole('button', { name: 'Pay (mock)' }));
+
+    await screen.findByRole('heading', { name: `Order ${ORDER_NUMBER}` });
+    const [first, second] = keysSent();
     expect(second).toBe(first);
   });
 

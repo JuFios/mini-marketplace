@@ -333,6 +333,33 @@ describe('checkout (e2e)', () => {
       expect(orderEvents.orderCreated).toHaveBeenCalledTimes(1);
     });
 
+    it('refuses a key sent again with another shipping address: 422, and the order stays as it was', async () => {
+      const mouse = await product('Mouse', '10.00', 10);
+      await putInCart(ann, mouse.id, 2);
+      const first = await checkout(ann, 'retry-key-0002').expect(201);
+
+      const retry = await checkout(ann, 'retry-key-0002', {
+        shippingAddress: '1 Another Road, Springfield 12345',
+      }).expect(422);
+
+      expect(retry.body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+      const stored = await prisma.order.findUniqueOrThrow({
+        where: { id: (first.body as OrderResponse).id },
+      });
+      expect(stored.shippingAddress).toBe(ADDRESS);
+      expect(await prisma.order.count()).toBe(1);
+      expect(await stockOf(mouse.id)).toBe(8);
+    });
+
+    it('does not mind spaces around the address when the same key is sent again', async () => {
+      const mouse = await product('Mouse', '10.00', 10);
+      await putInCart(ann, mouse.id, 1);
+      await checkout(ann, 'retry-key-0003').expect(201);
+
+      // The address is trimmed before it is compared, as it is before it is stored.
+      await checkout(ann, 'retry-key-0003', { shippingAddress: `  ${ADDRESS}  ` }).expect(200);
+    });
+
     it('scopes keys to the customer: the same key from someone else is a new order', async () => {
       const mouse = await product('Mouse', '10.00', 10);
       await putInCart(ann, mouse.id, 1);

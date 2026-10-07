@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { INestApplication, Type } from '@nestjs/common';
+import { INestApplication, Provider, Type } from '@nestjs/common';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { Redis } from 'ioredis';
 import { AppModule } from '../../src/app.module';
@@ -15,16 +15,18 @@ import { REDIS_CLIENT } from '../../src/infra/redis/redis.module';
  * Orders are handed to the queue as in production, but nothing consumes it unless `worker` is
  * set: then the order worker runs inside the test app, so a placed order is paid by the mock
  * provider like in a deployment. Without it orders stay NEW, which is what the tests of the
- * order lifecycle rely on.
+ * order lifecycle rely on. `providers` adds services that only the worker process has, so a test
+ * can run one by hand against the real database without starting the queue consumers.
  */
 export async function createTestApp(
   customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
   controllers: Type<unknown>[] = [],
-  { worker = false }: { worker?: boolean } = {},
+  { worker = false, providers = [] }: { worker?: boolean; providers?: Provider[] } = {},
 ): Promise<INestApplication> {
   const builder = Test.createTestingModule({
     imports: worker ? [AppModule, OrderWorkerModule] : [AppModule],
     controllers,
+    providers,
   });
   const moduleRef = await (customize ? customize(builder) : builder).compile();
 

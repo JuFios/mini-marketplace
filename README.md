@@ -48,7 +48,7 @@ Things worth knowing:
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web`              | nginx. Serves the React build and forwards `/api` and `/uploads` to the API, so the browser sees one origin: no CORS, plain cookies. Sets the CSP and other headers. The only published port. |
 | `api`              | The NestJS HTTP API.                                                                                                                                                                         |
-| `worker`           | The same image running `node dist/worker.js`: the BullMQ consumer that pays for orders, plus the sweeper for orders whose job was lost.                                                      |
+| `worker`           | The same image running `node dist/worker.js`: the BullMQ consumer that pays for orders, the sweeper for orders whose job was lost, and the cleanup of unused product pictures.              |
 | `migrate`          | Runs once: applies the migrations and seeds. `api` and `worker` wait for it.                                                                                                                  |
 | `postgres`, `redis` | The data stores. Their ports are not published unless `POSTGRES_PORT` / `REDIS_PORT` are set (see [Development](#development)).                                                              |
 
@@ -76,6 +76,8 @@ Modules: `auth`, `users`, `categories`, `products` (with the catalogue cache), `
   ```
 
 - **Money** is `NUMERIC(12,2)` in the database, `Prisma.Decimal` in code and a decimal string in JSON. A JS `number` never holds an amount on the backend.
+- **Sales figures.** The dashboard and the CSV report count the orders that are `PROCESSING`, `SHIPPED` or `COMPLETED` (paid and not cancelled), on the UTC day the order was *placed*, not the day it was paid, shipped or cancelled. An order cancelled later therefore drops out of its day, and a figure for a past period can go down.
+- **Pictures** are uploaded to a volume under generated names and attached to a product by URL. Nothing deletes a file when a product's picture is replaced or cleared, or when an upload is never attached, so an hourly job in the worker does it: it deletes every uploaded picture that no product uses (archived products count as using theirs, they can be restored) and that is more than a day old. The day is the grace period for a product form that is still open. The worker therefore needs the volume the API writes to, which the compose file mounts into both.
 - **Logging** is JSON with a request id. Domain events have a stable `event` field (`order.created`, `order.status_changed`, `stock.adjusted`, …). Credentials are redacted, and request headers are not logged at all.
 - **Configuration** is read from the environment once, validated by a schema at boot, and reachable only through one typed service. An invalid value stops the process with the names of the variables and the reasons, never the values.
 
@@ -97,7 +99,7 @@ The rest of the checkout transaction:
 - The user's cart rows are locked first (`FOR UPDATE`), which serialises double clicks and two tabs of the same user.
 - Products are always locked in ascending id order, here and when cancelling an order, so concurrent multi-item checkouts cannot deadlock. If PostgreSQL still reports a deadlock, the API answers `409 CONCURRENT_UPDATE`, and the client may retry safely.
 - The price is read from the locked row, so an order always charges the price at the moment of purchase.
-- The `Idempotency-Key` header is stored on the order under a unique `(user_id, idempotency_key)` index. A retry after a lost response returns the same order (`200`, `Idempotent-Replayed: true`) instead of creating a second one.
+- The `Idempotency-Key` header is stored on the order under a unique `(user_id, idempotency_key)` index. A retry after a lost response returns the same order (`200`, `Idempotent-Replayed: true`) instead of creating a second one. The same key with a different shipping address is refused (`422 IDEMPOTENCY_KEY_REUSED`), not answered with an order the caller did not ask for.
 - Only purchased cart rows are deleted; an item added from another tab during the checkout stays in the cart.
 - Side effects (cache invalidation, enqueueing the payment job, the log line) run after the commit, so a rollback never leaves one behind.
 
@@ -126,7 +128,7 @@ React with TypeScript, feature folders, and TanStack Query as the only server-st
 - The catalogue and the order and admin tables keep their filters in the URL, so a view can be shared and the back button works.
 - The cart is optimistic: changes show at once, a failure rolls back with the server's message, and mutations run one after another so out-of-order answers cannot overwrite newer state. Quantities are absolute, so retries are harmless.
 - The refresh call is single-flight inside the tab and under a Web Lock across tabs, because two tabs presenting the same rotated cookie would trip the reuse detection and log the user out.
-- Checkout generates one `Idempotency-Key` per purchase attempt (new only when the cart changes), then polls the order until the payment result arrives.
+- Checkout generates one `Idempotency-Key` per purchase attempt (new only when the cart or the shipping address changes), then polls the order until the payment result arrives.
 - Every data view handles loading, empty and error states. Forms use React Hook Form with Zod and show the API's field errors.
 - Admin pages are lazy-loaded, so customers never download them; the chart library is only in the dashboard's chunk.
 - Components that appear in Storybook are presentational: props in, callbacks out, no data fetching.
@@ -252,7 +254,7 @@ Before exposing the stack to anyone else: replace the JWT secrets and `ADMIN_PAS
 - **Every checkout and cancellation invalidates the whole catalogue cache**, which lowers the hit rate when many people are buying. The alternative is to cache products without stock and read stock live.
 - **Prices:** the cart always shows current prices and the order takes the price at checkout, but there is no "the total changed, confirm?" step.
 - **Scope of the shop:** one currency, no taxes, shipping costs or discounts, no stock reservation at add-to-cart (the cart only warns; checkout is the authority), no guest checkout.
-- **Pictures** live on a local volume. Object storage with resizing is the next step; the storage sits behind an interface for that reason.
+- **Pictures** live on a local volume. Object storage with resizing is the next step; the storage sits behind an interface for that reason. Unused pictures are found by listing the directory once an hour, so one stays for up to a day and an hour after it stops being used; with object storage this would be a lifecycle rule, or a delete at the moment of replacement.
 - **Admin:** no user management and no audit trail beyond the logs.
 - **Frontend:** no browser end-to-end tests (the flows are covered by component and integration tests and were walked through by hand), no i18n, and Storybook covers the key components only.
 - **Operations:** no metrics or tracing, no readiness check for the worker, no Kubernetes manifests, and CI builds the images without publishing them. TLS termination is not part of the stack.

@@ -17,6 +17,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { API_PREFIX } from '../../common/api-prefix';
@@ -62,6 +63,10 @@ export class OrdersController {
     type: OrderResponse,
     description: 'The key was used before: the existing order, nothing new is created',
     headers: { [IDEMPOTENT_REPLAYED_HEADER]: { schema: { type: 'string', enum: ['true'] } } },
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'IDEMPOTENCY_KEY_REUSED: the key was used before with a different shipping address',
   })
   async place(
     @CurrentUser() user: AuthenticatedUser,

@@ -378,5 +378,41 @@ describe('CheckoutService', () => {
 
       await expect(service.placeOrder(REQUEST)).rejects.toBe(violation);
     });
+
+    describe('a key reused with another shipping address', () => {
+      const ELSEWHERE = { ...REQUEST, shippingAddress: '9 Other Road, Shelbyville' };
+      const REUSED = { code: 'IDEMPOTENCY_KEY_REUSED', httpStatus: 422 };
+
+      it('is refused by the pre-check instead of answering with the order of the first request', async () => {
+        const { service, orders, prisma } = setup([line(A, 1)]);
+        orders.findByIdempotencyKey.mockResolvedValueOnce(EXISTING);
+
+        await expect(service.placeOrder(ELSEWHERE)).rejects.toMatchObject(REUSED);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('is refused when the first request committed while this one waited for the cart lock', async () => {
+        const { service, orders, inventory, tx } = setup([]);
+        orders.findByIdempotencyKey.mockImplementation((_u: string, _k: string, client?: unknown) =>
+          Promise.resolve(client === tx ? EXISTING : null),
+        );
+
+        await expect(service.placeOrder(ELSEWHERE)).rejects.toMatchObject(REUSED);
+        expect(inventory.decrementStock).not.toHaveBeenCalled();
+      });
+
+      it('is refused when the insert loses the race for the key', async () => {
+        const { service, orders, catalogCache, orderEvents } = setup([line(A, 1)]);
+        orders.create.mockRejectedValue(uniqueViolation());
+        orders.findByIdempotencyKey
+          .mockResolvedValueOnce(null) // pre-check
+          .mockResolvedValueOnce(null) // re-check inside the transaction
+          .mockResolvedValueOnce(EXISTING); // after the rollback
+
+        await expect(service.placeOrder(ELSEWHERE)).rejects.toMatchObject(REUSED);
+        expect(catalogCache.invalidate).not.toHaveBeenCalled();
+        expect(orderEvents.orderCreated).not.toHaveBeenCalled();
+      });
+    });
   });
 });

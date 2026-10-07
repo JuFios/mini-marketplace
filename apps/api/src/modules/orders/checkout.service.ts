@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import {
   AppException,
+  IdempotencyKeyReusedException,
   InsufficientStockException,
   ResourceConflictException,
 } from '../../common/exceptions/app.exception';
@@ -62,7 +63,7 @@ export class CheckoutService {
 
     // A retry of a checkout that already went through is answered without a transaction or locks.
     const previous = await this.orders.findByIdempotencyKey(userId, idempotencyKey);
-    if (previous) return replay(previous);
+    if (previous) return replay(previous, request);
 
     let outcome: TransactionOutcome;
     try {
@@ -77,10 +78,10 @@ export class CheckoutService {
       if (!isUniqueViolation(error)) throw error;
       const winner = await this.orders.findByIdempotencyKey(userId, idempotencyKey);
       if (!winner) throw error;
-      return replay(winner);
+      return replay(winner, request);
     }
 
-    if (!outcome.created) return replay(outcome.order);
+    if (!outcome.created) return replay(outcome.order, request);
     await this.afterCommit(outcome.order);
     return { order: toOrderResponse(outcome.order, 'customer'), replayed: false };
   }
@@ -187,6 +188,13 @@ export class CheckoutService {
   }
 }
 
-function replay(order: OrderWithItems): CheckoutResult {
+/**
+ * The key already produced `order`, so the answer is that order. A request that asks for something
+ * else under the same key is a misuse, and answering with an order the caller did not ask for
+ * would hide it: it is refused instead. The cart is no part of the comparison: it is server state,
+ * which the first request has emptied since.
+ */
+function replay(order: OrderWithItems, request: CheckoutRequest): CheckoutResult {
+  if (order.shippingAddress !== request.shippingAddress) throw new IdempotencyKeyReusedException();
   return { order: toOrderResponse(order, 'customer'), replayed: true };
 }

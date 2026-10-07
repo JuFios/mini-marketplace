@@ -6,7 +6,8 @@ const file = (buffer: Buffer, originalname = 'photo.png', mimetype = 'image/png'
 
 function setup() {
   const save = jest.fn().mockResolvedValue('/uploads/abc.png');
-  return { service: new ProductImagesService({ save }), save };
+  const storage = { save, list: jest.fn(), delete: jest.fn() };
+  return { service: new ProductImagesService(storage), save };
 }
 
 describe('ProductImagesService', () => {
