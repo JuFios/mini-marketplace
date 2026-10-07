@@ -53,4 +53,14 @@ export class OrderProcessingProcessor extends WorkerHost {
       'Processing job failed',
     );
   }
+
+  /**
+   * An error of the worker itself rather than of a job: Redis unreachable, a job whose keys are
+   * gone. Without a listener BullMQ prints it with console.error, outside the JSON log and its
+   * redaction.
+   */
+  @OnWorkerEvent('error')
+  onError(error: Error): void {
+    this.logger.warn({ event: 'orders.worker_error', err: error }, 'Order queue worker error');
+  }
 }

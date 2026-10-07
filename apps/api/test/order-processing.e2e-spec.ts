@@ -16,6 +16,7 @@ import {
   ORDERS_QUEUE,
   PROCESS_ORDER_JOB,
   STALE_AFTER_MS,
+  SWEEP_SCHEDULER_ID,
 } from '../src/modules/orders/queue/order-queue.constants';
 import { StaleOrderSweeper } from '../src/modules/orders/queue/stale-order.sweeper';
 import { MockPaymentProvider } from '../src/modules/payments/mock-payment-provider';
@@ -56,6 +57,8 @@ const deferred = () => {
 
 describe('order processing (e2e)', () => {
   let app: INestApplication;
+  /** An app without a worker, used only to clean up before each worker boots (see `startApp`). */
+  let cleaner: INestApplication;
   let prisma: PrismaService;
   let ann: TestUser;
   let admin: TestUser;
@@ -90,11 +93,18 @@ describe('order processing (e2e)', () => {
     return response.body as OrderResponse;
   }
 
-  /** Boots an app with the worker running in-process and the given payment provider. */
+  /**
+   * Cleans the database and Redis, boots an app with the worker running in-process and the given
+   * payment provider, and adds the users and category every test starts from. The cleaning comes
+   * before the boot: the worker acts at once (its stale-order sweep runs as soon as it starts), so
+   * leftovers of an earlier test or test file would hand it jobs, and a cleanup afterwards would
+   * delete the Redis keys of a job it is still running.
+   */
   const startApp = async (
     provider: PaymentProvider,
     overrides: { events?: { orderCreated: () => Promise<void> } } = {},
   ) => {
+    await resetDb(cleaner);
     app = await createTestApp(
       (builder) => {
         const configured = builder.overrideProvider(PAYMENT_PROVIDER).useValue(provider);
@@ -105,24 +115,30 @@ describe('order processing (e2e)', () => {
       [],
       { worker: true },
     );
+    // The scheduled sweep runs once at boot, on the clean database. Tests that need the sweeper
+    // run it themselves, so no later scheduled run may interleave with theirs.
+    await app.get<Queue>(getQueueToken(ORDERS_QUEUE)).removeJobScheduler(SWEEP_SCHEDULER_ID);
     prisma = app.get(PrismaService);
-  };
-
-  const resetWorld = async () => {
-    await resetDb(app);
     ann = await createUserWithToken(app, Role.CUSTOMER, 'ann@example.com');
     admin = await createUserWithToken(app, Role.ADMIN);
     categoryId = (await prisma.category.create({ data: { name: 'Peripherals' } })).id;
   };
 
+  beforeAll(async () => {
+    cleaner = await createTestApp();
+  });
+
   afterEach(async () => {
     await app.close();
+  });
+
+  afterAll(async () => {
+    await cleaner.close();
   });
 
   describe('with the mock provider approving everything', () => {
     beforeEach(async () => {
       await startApp(new MockPaymentProvider({ failureRate: 0, delayMs: 0 }));
-      await resetWorld();
     });
 
     it('log in → add to cart → check out → the worker pays the order: PROCESSING / PAID, stock reduced, cart empty', async () => {
@@ -242,7 +258,6 @@ describe('order processing (e2e)', () => {
   describe('when the payment is declined', () => {
     beforeEach(async () => {
       await startApp(new MockPaymentProvider({ failureRate: 1, delayMs: 0 }));
-      await resetWorld();
     });
 
     it('cancels the order, marks the payment FAILED and puts the stock back', async () => {
@@ -308,7 +323,6 @@ describe('order processing (e2e)', () => {
       provider = new ScriptedProvider();
       // Nothing is handed to the queue, so only the runs the test starts can touch the order.
       await startApp(provider, { events: { orderCreated: () => Promise.resolve() } });
-      await resetWorld();
     });
 
     it('five concurrent runs pay it once: one "paid", the rest see it moved on', async () => {
@@ -357,7 +371,6 @@ describe('order processing (e2e)', () => {
     beforeEach(async () => {
       provider = new ScriptedProvider();
       await startApp(provider);
-      await resetWorld();
     });
 
     it('the charge that goes through is refunded: CANCELLED / REFUNDED, stock restored once', async () => {
@@ -432,7 +445,6 @@ describe('order processing (e2e)', () => {
       provider.script = (attempt) =>
         attempt === 1 ? Promise.reject(new Error('gateway timeout')) : Promise.resolve(undefined);
       await startApp(provider);
-      await resetWorld();
       const mouse = await product('Mouse', '19.99', 10);
 
       const placed = await placeOrder(ann, [{ productId: mouse.id, quantity: 2 }]);
@@ -453,7 +465,6 @@ describe('order processing (e2e)', () => {
     beforeEach(async () => {
       provider = new ScriptedProvider();
       await startApp(provider, { events: lostHandOver });
-      await resetWorld();
     });
 
     it('checkout still answers 201, and the sweeper later queues the order, which is then paid', async () => {

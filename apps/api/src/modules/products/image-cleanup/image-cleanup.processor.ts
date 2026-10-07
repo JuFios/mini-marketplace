@@ -53,4 +53,10 @@ export class ImageCleanupProcessor extends WorkerHost implements OnModuleInit {
       'Image cleanup job failed',
     );
   }
+
+  /** An error of the worker itself, logged rather than left to BullMQ's console.error. */
+  @OnWorkerEvent('error')
+  onError(error: Error): void {
+    this.logger.warn({ event: 'images.worker_error', err: error }, 'Image cleanup worker error');
+  }
 }

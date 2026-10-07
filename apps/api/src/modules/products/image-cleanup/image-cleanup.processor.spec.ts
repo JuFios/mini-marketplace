@@ -70,4 +70,16 @@ describe('ImageCleanupProcessor', () => {
       expect.any(String),
     );
   });
+
+  it('logs an error of the worker itself, which BullMQ would otherwise print to the console', () => {
+    const { processor, logger } = setup();
+    const error = new Error('Connection is closed.');
+
+    processor.onError(error);
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      { event: 'images.worker_error', err: error },
+      expect.any(String),
+    );
+  });
 });
