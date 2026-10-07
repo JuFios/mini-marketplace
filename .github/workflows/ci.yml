@@ -12,10 +12,12 @@ concurrency:
 permissions:
   contents: read
 
+# Every job names its runner image instead of `ubuntu-latest`: that label moves to a new Ubuntu
+# release on its own, and the pipeline (Docker, Compose, system packages) is proven on this one.
 jobs:
   quality:
     name: Lint, format, typecheck
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -29,7 +31,7 @@ jobs:
 
   unit-tests:
     name: API unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -41,7 +43,7 @@ jobs:
 
   web:
     name: Web tests, build, Storybook
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -56,7 +58,7 @@ jobs:
 
   api-tests:
     name: API e2e tests (PostgreSQL + Redis)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16-alpine
@@ -110,7 +112,7 @@ jobs:
     name: Docker images and smoke test
     # Only worth the minutes once everything else is green.
     needs: [quality, unit-tests, web, api-tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       # The mock payment provider approves every order at once, so the smoke test can insist on
       # a paid order instead of tolerating a random decline.
