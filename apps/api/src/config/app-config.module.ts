@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppConfigService } from './app-config.service';
 import { validateEnv } from './env.schema';
+import { PublishedSecretsWarning } from './published-secrets.warning';
 
 @Global()
 @Module({
@@ -14,7 +15,8 @@ import { validateEnv } from './env.schema';
       envFilePath: ['.env', '../../.env'],
     }),
   ],
-  providers: [AppConfigService],
+  // The warning sits here because both processes, the API and the worker, load this module.
+  providers: [AppConfigService, PublishedSecretsWarning],
   exports: [AppConfigService],
 })
 export class AppConfigModule {}

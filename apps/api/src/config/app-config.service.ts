@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from './env.schema';
 
+/** How the JWT secrets published in `.env.example` and the compose file begin. */
+export const PUBLISHED_SECRET_PREFIX = 'dev-only-';
+
 /** The only way application code reads configuration; values are validated at boot. */
 @Injectable()
 export class AppConfigService {
@@ -37,6 +40,13 @@ export class AppConfigService {
 
   get jwtRefreshSecret(): Env['JWT_REFRESH_SECRET'] {
     return this.config.get('JWT_REFRESH_SECRET', { infer: true });
+  }
+
+  /** True while either JWT secret is one of the published development values. */
+  get usesPublishedDevSecrets(): boolean {
+    return [this.jwtAccessSecret, this.jwtRefreshSecret].some((secret) =>
+      secret.startsWith(PUBLISHED_SECRET_PREFIX),
+    );
   }
 
   get jwtAccessTtlSeconds(): Env['JWT_ACCESS_TTL_SECONDS'] {
