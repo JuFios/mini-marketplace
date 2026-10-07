@@ -12,3 +12,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Error: Story = {};
 export const Info: Story = { args: { tone: 'info', children: 'Prices are shown in USD.' } };
+export const Success: Story = {
+  args: { tone: 'success', children: 'Payment received. We are preparing your order.' },
+};

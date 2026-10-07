@@ -65,6 +65,16 @@ export function CartPage() {
                   </dd>
                 </div>
               </dl>
+              {data.hasIssues ? (
+                // The alert on the left says what to fix; checkout would refuse the cart as it is.
+                <Button size="lg" className="w-full" disabled>
+                  Proceed to checkout
+                </Button>
+              ) : (
+                <Link to="/checkout" className={buttonStyles('primary', 'lg', 'w-full')}>
+                  Proceed to checkout
+                </Link>
+              )}
               <Button variant="ghost" size="sm" onClick={() => setConfirmingClear(true)}>
                 Clear cart
               </Button>

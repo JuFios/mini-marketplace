@@ -4,6 +4,7 @@ import { cn } from '@/shared/lib/cn';
 const TONES = {
   error: 'border-red-200 bg-red-50 text-red-800',
   info: 'border-brand-100 bg-brand-50 text-brand-700',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
 } as const;
 
 export interface AlertProps extends ComponentProps<'div'> {

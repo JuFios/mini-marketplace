@@ -1,6 +1,9 @@
 import { Outlet, type RouteObject } from 'react-router';
 import { CartPage } from '@/features/cart/pages/cart-page';
+import { CheckoutPage } from '@/features/checkout/pages/checkout-page';
 import { CatalogPage } from '@/features/catalog/pages/catalog-page';
+import { OrderPage } from '@/features/orders/pages/order-page';
+import { OrdersPage } from '@/features/orders/pages/orders-page';
 import { ProductPage } from '@/features/product/pages/product-page';
 import { LoginPage } from '@/features/auth/pages/login-page';
 import { RegisterPage } from '@/features/auth/pages/register-page';
@@ -33,7 +36,12 @@ export const routes: RouteObject[] = [
           },
           {
             element: <AccountLayout />,
-            children: [{ path: 'cart', element: <CartPage /> }],
+            children: [
+              { path: 'cart', element: <CartPage /> },
+              { path: 'checkout', element: <CheckoutPage /> },
+              { path: 'orders', element: <OrdersPage /> },
+              { path: 'orders/:id', element: <OrderPage /> },
+            ],
           },
           { path: '*', element: <NotFoundPage /> },
         ],
