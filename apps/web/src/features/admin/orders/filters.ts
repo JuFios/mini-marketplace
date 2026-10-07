@@ -1,4 +1,5 @@
 import type { OrderStatus } from '@/shared/api/types';
+import { parsePage } from '@/shared/lib/page';
 import { isOrderStatus } from '@/features/orders/filters';
 import { isCalendarDay } from '../days';
 
@@ -25,7 +26,6 @@ export const DEFAULT_FILTERS: AdminOrderFilters = {
 };
 
 const MAX_EMAIL_LENGTH = 254;
-const MAX_PAGE = 100_000;
 
 /** Both days are known to be real days here; empty means "no bound". */
 export function isDayRangeOrdered(from: string, to: string): boolean {
@@ -37,7 +37,6 @@ export function parseFilters(params: URLSearchParams): AdminOrderFilters {
   const status = params.get('status');
   const from = params.get('from') ?? '';
   const to = params.get('to') ?? '';
-  const page = Number(params.get('page'));
 
   const validFrom = isCalendarDay(from) ? from : '';
   const validTo = isCalendarDay(to) && isDayRangeOrdered(validFrom, to) ? to : '';
@@ -46,7 +45,7 @@ export function parseFilters(params: URLSearchParams): AdminOrderFilters {
     from: validFrom,
     to: validTo,
     customerEmail: (params.get('email') ?? '').trim().slice(0, MAX_EMAIL_LENGTH),
-    page: Number.isInteger(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    page: parsePage(params),
   };
 }
 

@@ -1,4 +1,5 @@
 import { toCents } from '@/shared/lib/money';
+import { parsePage } from '@/shared/lib/page';
 
 export type SortOption = 'newest' | 'price_asc' | 'price_desc';
 
@@ -31,7 +32,6 @@ export const DEFAULT_FILTERS: CatalogFilters = {
 
 const MAX_SEARCH_LENGTH = 100;
 const MAX_PRICE_CENTS = 1_000_000_00;
-const MAX_PAGE = 100_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PRICE = /^\d{1,7}(\.\d{1,2})?$/;
 
@@ -59,7 +59,6 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
   const minPrice = params.get('minPrice') ?? '';
   let maxPrice = params.get('maxPrice') ?? '';
   const sort = params.get('sort');
-  const page = Number(params.get('page'));
 
   const validMin = isPriceValid(minPrice) ? minPrice : '';
   if (!isPriceValid(maxPrice) || !isPriceRangeOrdered(validMin, maxPrice)) maxPrice = '';
@@ -70,7 +69,7 @@ export function parseFilters(params: URLSearchParams): CatalogFilters {
     minPrice: validMin,
     maxPrice,
     sort: isSortOption(sort) ? sort : DEFAULT_FILTERS.sort,
-    page: Number.isInteger(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    page: parsePage(params),
   };
 }
 

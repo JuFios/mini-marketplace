@@ -1,4 +1,5 @@
 import { ORDER_STATUSES, type OrderStatus } from '@/shared/api/types';
+import { parsePage } from '@/shared/lib/page';
 
 export const ORDERS_PAGE_SIZE = 10;
 
@@ -11,8 +12,6 @@ export interface OrderFilters {
 
 export const DEFAULT_FILTERS: OrderFilters = { status: '', page: 1 };
 
-const MAX_PAGE = 100_000;
-
 export function isOrderStatus(value: string | null): value is OrderStatus {
   return ORDER_STATUSES.some((status) => status === value);
 }
@@ -20,10 +19,9 @@ export function isOrderStatus(value: string | null): value is OrderStatus {
 /** Filters from a URL that anyone can edit by hand: what the API would reject is dropped. */
 export function parseFilters(params: URLSearchParams): OrderFilters {
   const status = params.get('status');
-  const page = Number(params.get('page'));
   return {
     status: isOrderStatus(status) ? status : '',
-    page: Number.isInteger(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    page: parsePage(params),
   };
 }
 

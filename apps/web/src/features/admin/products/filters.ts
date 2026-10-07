@@ -1,3 +1,5 @@
+import { parsePage } from '@/shared/lib/page';
+
 export type ProductStatusFilter = 'all' | 'active' | 'archived';
 
 export const STATUS_OPTIONS: ReadonlyArray<{ value: ProductStatusFilter; label: string }> = [
@@ -24,7 +26,6 @@ export const DEFAULT_FILTERS: AdminProductFilters = {
 };
 
 const MAX_SEARCH_LENGTH = 100;
-const MAX_PAGE = 100_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isStatus(value: string | null): value is ProductStatusFilter {
@@ -35,12 +36,11 @@ function isStatus(value: string | null): value is ProductStatusFilter {
 export function parseFilters(params: URLSearchParams): AdminProductFilters {
   const category = params.get('category') ?? '';
   const status = params.get('status');
-  const page = Number(params.get('page'));
   return {
     search: (params.get('q') ?? '').trim().slice(0, MAX_SEARCH_LENGTH),
     categoryId: UUID.test(category) ? category : '',
     status: isStatus(status) ? status : DEFAULT_FILTERS.status,
-    page: Number.isInteger(page) && page >= 1 ? Math.min(page, MAX_PAGE) : 1,
+    page: parsePage(params),
   };
 }
 
