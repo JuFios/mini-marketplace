@@ -4,6 +4,7 @@ import {
   InsufficientStockException,
   ResourceConflictException,
   ResourceNotFoundException,
+  ValidationFailedException,
 } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/exceptions/error-codes';
 import { isRecordNotFound } from '../../common/filters/database-error';
@@ -11,7 +12,7 @@ import { Paginated, pageOffset, paginated } from '../../common/pagination/pagina
 import { CatalogCacheService } from '../catalog-cache/catalog-cache.service';
 import { CategoriesService } from '../categories/categories.service';
 import type { AdminProductQueryDto } from './dto/admin-product-query.dto';
-import type { CreateProductDto } from './dto/create-product.dto';
+import { type CreateProductDto, MAX_STOCK } from './dto/create-product.dto';
 import type { AdminProductResponse, StockAdjustmentResponse } from './dto/product.response.dto';
 import type { StockAdjustmentDto } from './dto/stock-adjustment.dto';
 import type { UpdateProductDto } from './dto/update-product.dto';
@@ -124,7 +125,12 @@ export class ProductsService {
   private async explainRejectedAdjustment(
     id: string,
     delta: number,
-  ): Promise<ResourceNotFoundException | ResourceConflictException | InsufficientStockException> {
+  ): Promise<
+    | ResourceNotFoundException
+    | ResourceConflictException
+    | ValidationFailedException
+    | InsufficientStockException
+  > {
     const state = await this.products.findStockState(id);
     if (!state) return notFound();
     if (state.deletedAt) {
@@ -132,6 +138,16 @@ export class ProductsService {
         'The product is archived; restore it before adjusting stock',
         ErrorCode.PRODUCT_UNAVAILABLE,
       );
+    }
+    // For a live product an addition fails only on the limit and a removal only on zero, so the
+    // sign tells which, even when the stock has changed since the UPDATE.
+    if (delta > 0) {
+      return new ValidationFailedException([
+        {
+          field: 'delta',
+          messages: [`Stock cannot go above ${MAX_STOCK} (current stock: ${state.stock})`],
+        },
+      ]);
     }
     return new InsufficientStockException('Stock cannot go below zero', [
       { productId: id, requested: delta, available: state.stock },

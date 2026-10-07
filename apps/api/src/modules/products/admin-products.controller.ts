@@ -24,7 +24,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AdminProductQueryDto } from './dto/admin-product-query.dto';
-import { CreateProductDto } from './dto/create-product.dto';
+import { CreateProductDto, MAX_STOCK } from './dto/create-product.dto';
 import {
   AdminProductResponse,
   ImageUploadResponse,
@@ -105,7 +105,10 @@ export class AdminProductsController {
 
   @Post(':id/stock-adjustments')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Add or remove units atomically; stock never goes below zero' })
+  @ApiOperation({
+    summary: 'Add or remove units atomically; stock never goes below zero',
+    description: `Refused with 400 on delta if an addition would take stock past ${MAX_STOCK}.`,
+  })
   adjustStock(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: StockAdjustmentDto,

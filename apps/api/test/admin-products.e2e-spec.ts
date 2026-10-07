@@ -314,6 +314,35 @@ describe('admin products (e2e)', () => {
       });
     });
 
+    it('fills stock up to exactly 1 000 000 and refuses to go past it with 400 on delta', async () => {
+      const product = await createProduct({ stock: 999_990 });
+      await adjust(product.id, { delta: 10 }).expect(200);
+
+      const response = await adjust(product.id, { delta: 1 }).expect(400);
+
+      expect(response.body).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: [
+          { field: 'delta', messages: ['Stock cannot go above 1000000 (current stock: 1000000)'] },
+        ],
+      });
+      expect((await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).stock).toBe(
+        1_000_000,
+      );
+    });
+
+    it('still takes units away when cancelled orders have put stock above the limit', async () => {
+      const product = await createProduct();
+      // Restocking a cancelled order is not capped (InventoryRepository.restock).
+      await prisma.product.update({ where: { id: product.id }, data: { stock: 1_000_005 } });
+
+      expect((await adjust(product.id, { delta: -1 }).expect(200)).body).toEqual({
+        id: product.id,
+        stock: 1_000_004,
+      });
+      await adjust(product.id, { delta: 1 }).expect(400);
+    });
+
     it('refuses an archived product with 409 PRODUCT_UNAVAILABLE', async () => {
       const product = await createProduct();
       await api().delete(`/api/v1/admin/products/${product.id}`).set(auth).expect(204);

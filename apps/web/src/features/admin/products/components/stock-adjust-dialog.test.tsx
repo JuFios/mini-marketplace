@@ -44,7 +44,7 @@ describe('StockAdjustDialog', () => {
     expect(screen.getByText('6')).toBeInTheDocument();
   });
 
-  it('refuses 0 and a change that would take the stock below 0, without sending anything', async () => {
+  it('refuses 0 and a change that would take the stock below 0 or past 1 000 000, without sending anything', async () => {
     const { submit } = setup();
 
     await userEvent.type(screen.getByLabelText('Change'), '0');
@@ -56,7 +56,36 @@ describe('StockAdjustDialog', () => {
     await apply();
     expect(await screen.findByText('Stock cannot go below 0 (there are 10)')).toBeInTheDocument();
 
+    await userEvent.clear(screen.getByLabelText('Change'));
+    await userEvent.type(screen.getByLabelText('Change'), '999991');
+    await apply();
+    expect(
+      await screen.findByText('Stock cannot go above 1000000 (there are 10)'),
+    ).toBeInTheDocument();
+
     expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('shows the API’s refusal of the change (the stock changed meanwhile) on the field', async () => {
+    const limit = 'Stock cannot go above 1000000 (current stock: 999995)';
+    setup(() =>
+      Promise.reject(
+        new ApiError({
+          status: 400,
+          code: 'VALIDATION_FAILED',
+          message: 'Request validation failed',
+          details: [{ field: 'delta', messages: [limit] }],
+        }),
+      ),
+    );
+
+    await userEvent.type(screen.getByLabelText('Change'), '5');
+    await apply();
+
+    expect(await screen.findByText(limit)).toBeInTheDocument();
+    expect(screen.getByLabelText('Change')).toHaveAccessibleDescription(
+      expect.stringContaining(limit),
+    );
   });
 
   it('shows the API’s refusal (the stock changed meanwhile) and stays open', async () => {

@@ -63,7 +63,11 @@ export const EMPTY_PRODUCT: ProductValues = {
 
 const MAX_DELTA = 1_000_000;
 
-/** The stock adjustment dialog's fields; `currentStock` bounds how far a negative delta may go. */
+/**
+ * The stock adjustment dialog's fields. `currentStock` bounds the delta: stock may not go below 0,
+ * and an addition may not take it past the limit a new product has. Like the API, removals are
+ * not capped: a cancelled order puts its units back even above the limit.
+ */
 export function stockAdjustmentSchema(currentStock: number) {
   return z.object({
     delta: z
@@ -78,6 +82,13 @@ export function stockAdjustmentSchema(currentStock: number) {
       .refine(
         (value) => !/^[+-]?\d+$/.test(value) || currentStock + Number(value) >= 0,
         `Stock cannot go below 0 (there are ${currentStock})`,
+      )
+      .refine(
+        (value) =>
+          !/^[+-]?\d+$/.test(value) ||
+          Number(value) < 0 ||
+          currentStock + Number(value) <= MAX_STOCK,
+        `Stock cannot go above ${MAX_STOCK} (there are ${currentStock})`,
       ),
     reason: z.string().trim().max(200, 'Reason must be at most 200 characters'),
   });

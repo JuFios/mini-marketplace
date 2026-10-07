@@ -53,6 +53,22 @@ describe('ProductsService.adjustStock', () => {
     });
   });
 
+  it('answers 400 VALIDATION_FAILED on delta when an addition would pass the stock limit', async () => {
+    const { service, products, catalogCache, logger } = setup();
+    products.adjustStock.mockResolvedValue(null);
+    products.findStockState.mockResolvedValue({ stock: 999_995, deletedAt: null });
+
+    await expect(service.adjustStock('p1', { delta: 6 }, 'a')).rejects.toMatchObject({
+      httpStatus: 400,
+      code: 'VALIDATION_FAILED',
+      details: [
+        { field: 'delta', messages: ['Stock cannot go above 1000000 (current stock: 999995)'] },
+      ],
+    });
+    expect(catalogCache.invalidate).not.toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+  });
+
   it('answers 409 PRODUCT_UNAVAILABLE for an archived product', async () => {
     const { service, products } = setup();
     products.adjustStock.mockResolvedValue(null);

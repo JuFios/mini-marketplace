@@ -5,6 +5,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { UPLOADS_URL_PREFIX } from '../../infra/storage/local-disk-image-storage';
 import type { ProductStatusFilter } from './dto/admin-product-query.dto';
+import { MAX_STOCK } from './dto/create-product.dto';
 import type { ProductSort } from './dto/product-query.dto';
 import type { ProductWithCategory } from './mappers/to-product-response';
 
@@ -171,19 +172,26 @@ export class ProductsRepository {
 
   /**
    * Changes stock by `delta` and returns the new value, or `null` when nothing was updated
-   * (product missing, archived, or the result would be negative).
+   * (product missing, archived, the result would be negative, or an addition would take stock
+   * past `MAX_STOCK`).
    *
-   * Concurrency: the check (`stock + delta >= 0`) and the write are one statement. The row lock
-   * taken by UPDATE makes a concurrent adjustment wait, and PostgreSQL re-evaluates the WHERE
-   * clause against the freshly committed row afterwards, so no adjustment is ever lost and stock
-   * can never go below zero. The value is relative on purpose: an absolute "set stock to N" would
-   * overwrite units sold between reading and writing.
+   * An addition may not go past `MAX_STOCK`, the limit a new product has: without it, stock could
+   * grow until `stock + delta` overflows the `int` column and the statement fails. Removals are
+   * not capped: a cancelled order puts its units back without a limit, so stock can already be
+   * above `MAX_STOCK`, and taking units away must keep working then.
+   *
+   * Concurrency: the checks and the write are one statement. The row lock taken by UPDATE makes a
+   * concurrent adjustment wait, and PostgreSQL re-evaluates the WHERE clause against the freshly
+   * committed row afterwards, so no adjustment is ever lost, stock can never go below zero and
+   * an addition never takes it past the limit. The value is relative on purpose: an absolute
+   * "set stock to N" would overwrite units sold between reading and writing.
    */
   async adjustStock(id: string, delta: number): Promise<number | null> {
     const rows = await this.prisma.$queryRaw<{ stock: number }[]>`
       UPDATE products
       SET stock = stock + ${delta}::int, updated_at = now()
       WHERE id = ${id}::uuid AND deleted_at IS NULL AND stock + ${delta}::int >= 0
+        AND (${delta}::int < 0 OR stock + ${delta}::int <= ${MAX_STOCK}::int)
       RETURNING stock`;
     return rows.length === 1 ? rows[0].stock : null;
   }

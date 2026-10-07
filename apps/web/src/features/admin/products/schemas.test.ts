@@ -120,6 +120,17 @@ describe('stockAdjustmentSchema', () => {
     expect(message(0, '1000001')).toBe('The change is too large');
   });
 
+  it('refuses to take the stock past 1 000 000, naming how much there is', () => {
+    expect(parse(999_990, '10').success).toBe(true);
+    expect(message(999_990, '11')).toBe('Stock cannot go above 1000000 (there are 999990)');
+    expect(message(1_000_000, '+1')).toBe('Stock cannot go above 1000000 (there are 1000000)');
+  });
+
+  it('still takes units away when a cancelled order has put the stock above the limit', () => {
+    expect(parse(1_000_005, '-1').success).toBe(true);
+    expect(message(1_000_005, '1')).toBe('Stock cannot go above 1000000 (there are 1000005)');
+  });
+
   it('caps the reason at 200 characters', () => {
     expect(parse(10, '1', 'x'.repeat(200)).success).toBe(true);
     expect(parse(10, '1', 'x'.repeat(201)).success).toBe(false);
