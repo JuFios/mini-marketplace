@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus } from '@/shared/api/types';
+import type { CancelReason, OrderStatus, PaymentStatus } from '@/shared/api/types';
 
 // Typed over every status: adding one to the API types does not compile until it is worded here.
 export const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -15,6 +15,12 @@ export const PAYMENT_LABELS: Record<PaymentStatus, string> = {
   FAILED: 'Declined',
   REFUNDED: 'Refunded',
   VOIDED: 'Not charged',
+};
+
+export const CANCEL_REASON_LABELS: Record<CancelReason, string> = {
+  CUSTOMER_REQUEST: 'Cancelled by the customer',
+  ADMIN_ACTION: 'Cancelled by the shop',
+  PAYMENT_FAILED: 'Payment was declined',
 };
 
 /** A short, readable handle for an order: the first block of its id. */

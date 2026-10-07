@@ -11,6 +11,16 @@ vi.mock('@/features/catalog/api', () => ({
   fetchProduct: () => Promise.reject(new Error('not used')),
   fetchCategories: () => Promise.resolve([]),
 }));
+// The admin pages are lazy-loaded here too; they only need to find answers (none of their data matters).
+vi.mock('@/features/admin/dashboard/api', () => ({
+  fetchSalesSummary: () => new Promise(() => undefined),
+  fetchSalesByDay: () => new Promise(() => undefined),
+  fetchSalesReport: () => new Promise(() => undefined),
+}));
+vi.mock('@/features/admin/orders/api', () => ({
+  fetchAdminOrders: () => new Promise(() => undefined),
+  fetchAdminOrder: () => new Promise(() => undefined),
+}));
 vi.mock('@/features/cart/api', () => ({
   fetchCart: () =>
     Promise.resolve({ items: [], totalQuantity: 0, subtotal: '0.00', hasIssues: false }),
@@ -78,11 +88,31 @@ describe('logout', () => {
 });
 
 describe('role-based routes', () => {
-  it('keeps a customer out of the admin area', async () => {
-    const { router } = renderApp('/admin', CUSTOMER);
+  it.each([
+    '/admin',
+    '/admin/products',
+    '/admin/products/new',
+    '/admin/products/3f2a9c1d-5b7e-4c1a-9d3e-0a1b2c3d4e5f/edit',
+    '/admin/categories',
+    '/admin/orders',
+    '/admin/orders/3f2a9c1d-5b7e-4c1a-9d3e-0a1b2c3d4e5f',
+  ])('keeps a customer out of %s', async (path) => {
+    const { router } = renderApp(path, CUSTOMER);
 
     expect(await screen.findByRole('heading', { name: 'Products' })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('shows the admin sections to an administrator', async () => {
+    renderApp('/admin/orders', ADMIN);
+
+    const sections = await screen.findByRole('navigation', { name: 'Admin sections' });
+
+    expect(
+      within(sections)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Dashboard', 'Products', 'Categories', 'Orders']);
   });
 
   it('lets an administrator into the lazy-loaded admin area', async () => {

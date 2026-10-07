@@ -1,4 +1,7 @@
 import type {
+  AdminOrder,
+  AdminOrderSummary,
+  AdminProduct,
   Cart,
   CartItem,
   Category,
@@ -6,6 +9,8 @@ import type {
   OrderSummary,
   Paginated,
   Product,
+  SalesByDay,
+  SalesSummary,
 } from '@/shared/api/types';
 
 export const MOUSE: Product = {
@@ -129,3 +134,77 @@ export function ordersPage(
     meta: { page: 1, limit: 10, total: items.length, totalPages: 1, ...overrides },
   } satisfies Paginated<OrderSummary>;
 }
+
+/** An uploaded picture's path looks like this; the API accepts no other `/uploads` form. */
+export const UPLOADED_IMAGE = '/uploads/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png';
+
+export const ADMIN_MOUSE: AdminProduct = { ...MOUSE, imageUrl: UPLOADED_IMAGE, deletedAt: null };
+
+export const ARCHIVED_KEYBOARD: AdminProduct = {
+  ...KEYBOARD,
+  deletedAt: '2026-10-06T12:00:00.000Z',
+};
+
+export function adminProductsPage(
+  items: AdminProduct[],
+  overrides: Partial<Paginated<AdminProduct>['meta']> = {},
+) {
+  return {
+    items,
+    meta: { page: 1, limit: 20, total: items.length, totalPages: 1, ...overrides },
+  } satisfies Paginated<AdminProduct>;
+}
+
+export const ORDER_CUSTOMER = {
+  id: '11111111-1111-4111-8111-111111111111',
+  email: 'ann@example.com',
+  name: 'Ann Lee',
+};
+
+export function adminOrder(overrides: Partial<AdminOrder> = {}): AdminOrder {
+  return {
+    ...order({
+      status: 'PROCESSING',
+      paymentStatus: 'PAID',
+      allowedTransitions: ['SHIPPED', 'CANCELLED'],
+    }),
+    customer: ORDER_CUSTOMER,
+    ...overrides,
+  };
+}
+
+export function adminOrderSummary(overrides: Partial<AdminOrderSummary> = {}): AdminOrderSummary {
+  return { ...orderSummary(), customer: ORDER_CUSTOMER, ...overrides };
+}
+
+export function adminOrdersPage(
+  items: AdminOrderSummary[],
+  overrides: Partial<Paginated<AdminOrderSummary>['meta']> = {},
+) {
+  return {
+    items,
+    meta: { page: 1, limit: 20, total: items.length, totalPages: 1, ...overrides },
+  } satisfies Paginated<AdminOrderSummary>;
+}
+
+/** Two sales: 2 × 19.99 + 1 × 89.50 = 129.48 (order one) and 19.99 (order two): 149.47 over 2 orders. */
+export const SALES_SUMMARY: SalesSummary = {
+  from: '2026-09-08',
+  to: '2026-10-07',
+  totalRevenue: '149.47',
+  ordersCount: 2,
+  averageOrderValue: '74.74',
+  topProducts: [
+    { productId: MOUSE.id, name: 'Wireless Mouse', quantitySold: 3, revenue: '59.97' },
+    { productId: KEYBOARD.id, name: 'Mechanical Keyboard', quantitySold: 1, revenue: '89.50' },
+  ],
+};
+
+export const SALES_BY_DAY: SalesByDay = {
+  from: '2026-10-06',
+  to: '2026-10-07',
+  days: [
+    { date: '2026-10-06', revenue: '129.48', ordersCount: 1 },
+    { date: '2026-10-07', revenue: '19.99', ordersCount: 1 },
+  ],
+};

@@ -21,7 +21,9 @@ export function Spinner({
     <span
       role={decorative ? undefined : 'status'}
       aria-hidden={decorative || undefined}
-      className={cn('inline-flex', className)}
+      // A block-level box that is only as wide as the spinner: auto margins can centre it (they do
+      // nothing on an inline box), and inside a flex container, like a button, it is a flex item anyway.
+      className={cn('flex w-fit', className)}
     >
       <svg
         viewBox="0 0 24 24"
