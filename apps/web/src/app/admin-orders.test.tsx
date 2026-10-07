@@ -135,6 +135,17 @@ describe('the admin order table', () => {
     expect(await screen.findByText('No orders yet')).toBeInTheDocument();
   });
 
+  it('says a page past the end does not exist instead of "no orders found"', async () => {
+    fetchList.mockResolvedValue(adminOrdersPage([], { page: 5, total: 45, totalPages: 3 }));
+    const { router } = renderApp('/admin/orders?status=NEW&page=5', ADMIN);
+
+    expect(await screen.findByText('There is no page 5')).toBeInTheDocument();
+    expect(screen.queryByText('No orders found')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the first page' }));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?status=NEW'));
+  });
+
   it('shows the error with a retry', async () => {
     fetchList.mockRejectedValueOnce(apiError(500, 'INTERNAL_ERROR'));
     renderApp('/admin/orders', ADMIN);

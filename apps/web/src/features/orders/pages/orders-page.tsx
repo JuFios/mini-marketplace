@@ -5,8 +5,8 @@ import {
   Button,
   EmptyState,
   FormField,
+  PagedQueryBoundary,
   Pagination,
-  QueryBoundary,
   Select,
   buttonStyles,
 } from '@/shared/ui';
@@ -41,9 +41,9 @@ export function OrdersPage() {
           </Select>
         )}
       </FormField>
-      <QueryBoundary
+      <PagedQueryBoundary
         query={orders}
-        isEmpty={(data) => data.items.length === 0}
+        onFirstPage={() => update({ page: 1 })}
         empty={
           filters.status ? (
             <EmptyState
@@ -89,7 +89,7 @@ export function OrdersPage() {
             />
           </div>
         )}
-      </QueryBoundary>
+      </PagedQueryBoundary>
     </div>
   );
 }

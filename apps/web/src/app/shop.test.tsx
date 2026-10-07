@@ -107,6 +107,27 @@ describe('catalog', () => {
     await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
+  it('says a page past the end does not exist, and goes back to the first one', async () => {
+    // Filters that match 30 products, so page 40 of an old link is empty.
+    fetchProducts.mockImplementation((filters) =>
+      Promise.resolve(
+        filters.page === 1
+          ? page([MOUSE], { total: 30, totalPages: 3 })
+          : page([], { page: filters.page, total: 30, totalPages: 3 }),
+      ),
+    );
+    const { router } = renderApp('/?q=mouse&page=40');
+
+    expect(await screen.findByText('There is no page 40')).toBeInTheDocument();
+    expect(screen.getByText('This list has 3 pages.')).toBeInTheDocument();
+    expect(screen.queryByText('No products found')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the first page' }));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?q=mouse'));
+    expect(await screen.findByRole('link', { name: 'Wireless Mouse' })).toBeInTheDocument();
+  });
+
   it('shows the error with a retry', async () => {
     fetchProducts.mockRejectedValueOnce(
       new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'boom', requestId: 'req-5' }),

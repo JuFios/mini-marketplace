@@ -7,6 +7,7 @@ export { ErrorState, type ErrorStateProps } from './error-state';
 export { FormField, type FieldControlProps, type FormFieldProps } from './form-field';
 export { Input, type InputProps } from './input';
 export { Modal, type ModalProps } from './modal';
+export { PagedQueryBoundary, type PagedQueryBoundaryProps } from './paged-query-boundary';
 export { Pagination, type PaginationProps } from './pagination';
 export { Price, type PriceProps } from './price';
 export { QueryBoundary, type BoundaryQuery, type QueryBoundaryProps } from './query-boundary';

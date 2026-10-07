@@ -1,6 +1,6 @@
 import { useExternalNavigationKey } from '@/shared/hooks/use-external-navigation-key';
 import { cn } from '@/shared/lib/cn';
-import { Button, EmptyState, Pagination, QueryBoundary } from '@/shared/ui';
+import { Button, EmptyState, PagedQueryBoundary, Pagination } from '@/shared/ui';
 import { OrdersFilters } from '../components/orders-filters';
 import { OrdersTable } from '../components/orders-table';
 import { hasActiveFilters } from '../filters';
@@ -22,9 +22,9 @@ export function AdminOrdersPage() {
         onReset={reset}
         isFiltered={hasActiveFilters(filters)}
       />
-      <QueryBoundary
+      <PagedQueryBoundary
         query={orders}
-        isEmpty={(data) => data.items.length === 0}
+        onFirstPage={() => update({ page: 1 })}
         empty={
           hasActiveFilters(filters) ? (
             <EmptyState
@@ -61,7 +61,7 @@ export function AdminOrdersPage() {
             />
           </div>
         )}
-      </QueryBoundary>
+      </PagedQueryBoundary>
     </div>
   );
 }

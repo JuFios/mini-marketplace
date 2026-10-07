@@ -123,6 +123,17 @@ describe('the order list', () => {
     await waitFor(() => expect(router.state.location.search).toBe(''));
   });
 
+  it('says a page past the end does not exist, keeping the status filter', async () => {
+    fetchOrders.mockResolvedValue(ordersPage([], { page: 9, total: 4, totalPages: 1 }));
+    const { router } = renderApp('/orders?status=SHIPPED&page=9', CUSTOMER);
+
+    expect(await screen.findByText('There is no page 9')).toBeInTheDocument();
+    expect(screen.getByText('This list has only one page.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the first page' }));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?status=SHIPPED'));
+  });
+
   it('shows the error with a retry', async () => {
     fetchOrders.mockRejectedValueOnce(apiError(500, 'INTERNAL_ERROR', 'boom'));
     fetchOrders.mockResolvedValue(ordersPage([orderSummary()]));

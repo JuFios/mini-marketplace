@@ -1,7 +1,7 @@
 import { useAddToCart } from '@/features/cart/use-add-to-cart';
 import { useExternalNavigationKey } from '@/shared/hooks/use-external-navigation-key';
 import { cn } from '@/shared/lib/cn';
-import { Button, EmptyState, Pagination, QueryBoundary } from '@/shared/ui';
+import { Button, EmptyState, PagedQueryBoundary, Pagination } from '@/shared/ui';
 import { FiltersBar } from '../components/filters-bar';
 import { ProductGrid, ProductGridSkeleton } from '../components/product-grid';
 import { hasActiveFilters } from '../filters';
@@ -27,9 +27,9 @@ export function CatalogPage() {
         onReset={reset}
         isFiltered={hasActiveFilters(filters)}
       />
-      <QueryBoundary
+      <PagedQueryBoundary
         query={products}
-        isEmpty={(data) => data.items.length === 0}
+        onFirstPage={() => update({ page: 1 })}
         loading={<ProductGridSkeleton />}
         empty={
           <EmptyState
@@ -64,7 +64,7 @@ export function CatalogPage() {
             />
           </div>
         )}
-      </QueryBoundary>
+      </PagedQueryBoundary>
     </div>
   );
 }

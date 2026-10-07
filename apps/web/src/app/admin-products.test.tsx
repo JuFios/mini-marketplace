@@ -106,6 +106,17 @@ describe('the admin product table', () => {
     expect(await screen.findByText('No products yet')).toBeInTheDocument();
   });
 
+  it('says a page past the end does not exist instead of offering to reset the filters', async () => {
+    fetchList.mockResolvedValue(adminProductsPage([], { page: 7, total: 45, totalPages: 3 }));
+    const { router } = renderApp('/admin/products?status=active&page=7', ADMIN);
+
+    expect(await screen.findByText('There is no page 7')).toBeInTheDocument();
+    expect(screen.queryByText('No products found')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the first page' }));
+
+    await waitFor(() => expect(router.state.location.search).toBe('?status=active'));
+  });
+
   it('shows the error with a retry', async () => {
     fetchList.mockRejectedValueOnce(apiError(500, 'INTERNAL_ERROR'));
     renderApp('/admin/products', ADMIN);

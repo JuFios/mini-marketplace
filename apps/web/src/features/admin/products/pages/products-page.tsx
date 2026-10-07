@@ -9,8 +9,8 @@ import {
   Button,
   ConfirmDialog,
   EmptyState,
+  PagedQueryBoundary,
   Pagination,
-  QueryBoundary,
   buttonStyles,
 } from '@/shared/ui';
 import { ProductsFilters } from '../components/products-filters';
@@ -52,9 +52,9 @@ export function ProductsPage() {
         onReset={reset}
         isFiltered={hasActiveFilters(filters)}
       />
-      <QueryBoundary
+      <PagedQueryBoundary
         query={products}
-        isEmpty={(data) => data.items.length === 0}
+        onFirstPage={() => update({ page: 1 })}
         empty={
           hasActiveFilters(filters) ? (
             <EmptyState
@@ -101,7 +101,7 @@ export function ProductsPage() {
             />
           </div>
         )}
-      </QueryBoundary>
+      </PagedQueryBoundary>
 
       <StockAdjustDialog
         product={adjusting}
