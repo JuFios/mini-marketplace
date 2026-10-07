@@ -1,6 +1,41 @@
-# Development dependencies. Every value has a dev-safe default, so the stack starts without a
-# `.env`; override through the environment or a root `.env` (see `.env.example`).
+# The whole stack:   docker compose up --build   →   http://localhost:8080 (Swagger: /api/docs)
+# Only the dependencies, for development on the host:   docker compose up -d postgres redis
+#
+# Every value has a dev-safe default, so a fresh clone starts without a `.env`; override through
+# the environment or a root `.env` (see `.env.example`, which documents every variable).
 name: mini-marketplace
+
+# The API and the worker are the same code, started differently, so they share one build. Each
+# service still gets its own image name: two services exporting to one tag in parallel collide.
+# The layers are shared, so the second image costs no extra disk space or build time.
+x-api-build: &api-build
+  context: .
+  dockerfile: apps/api/Dockerfile
+  target: api
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  PORT: 3000
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-mini_marketplace}
+  REDIS_URL: redis://redis:6379
+  # Published placeholders so the demo needs no setup. Anyone who can read this repository can
+  # forge tokens signed with them: set real keys (`openssl rand -base64 48`) in `.env` before
+  # exposing the stack to anyone else.
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-access-secret-change-me-0123456789}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-change-me-987654321}
+  JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+  JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS:-604800}
+  # The stack is served over plain HTTP; `Secure` cookies would never be sent back.
+  COOKIE_SECURE: ${COOKIE_SECURE:-false}
+  # nginx is the one proxy in front of the API: believe its X-Forwarded-For (rate limits are per client).
+  TRUST_PROXY: 1
+  UPLOAD_DIR: /data/uploads
+  UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2097152}
+  CATALOG_CACHE_TTL_SECONDS: ${CATALOG_CACHE_TTL_SECONDS:-120}
+  PAYMENT_MOCK_FAILURE_RATE: ${PAYMENT_MOCK_FAILURE_RATE:-0.1}
+  PAYMENT_MOCK_DELAY_MS: ${PAYMENT_MOCK_DELAY_MS:-1000}
 
 services:
   postgres:
@@ -12,8 +47,10 @@ services:
       # Read by the init script below to create the database used by the e2e tests.
       POSTGRES_TEST_DB: ${POSTGRES_TEST_DB:-mini_marketplace_test}
     ports:
-      # Loopback only: the default credentials must not be reachable from the network.
-      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+      # Loopback only: the default credentials must not be reachable from the network. Without
+      # POSTGRES_PORT the host port is picked by Docker, so a fresh clone never collides with a
+      # Postgres already running on the machine; development sets it (see `.env.example`).
+      - '127.0.0.1:${POSTGRES_PORT:-}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -30,7 +67,7 @@ services:
     # keys therefore always carry a TTL instead of relying on eviction.
     command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
     ports:
-      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-}:6379'
     volumes:
       - redisdata:/data
     healthcheck:
@@ -40,6 +77,84 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Runs once per `up`: applies the migrations, then seeds (idempotent upserts: the administrator,
+  # categories, products and a demo order history). The API and the worker wait for it.
+  migrate:
+    image: mini-marketplace-migrate
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-marketplace}:${POSTGRES_PASSWORD:-marketplace}@postgres:5432/${POSTGRES_DB:-mini_marketplace}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin12345}
+      DEMO_CUSTOMER_PASSWORD: ${DEMO_CUSTOMER_PASSWORD:-Customer12345}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    image: mini-marketplace-api
+    build: *api-build
+    environment: *api-environment
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # The image has no curl; Node's own fetch does the job. 200 means PostgreSQL and Redis answer.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # Consumes the order queue (mock payment, stale-order sweeper). No HTTP, so no healthcheck.
+  worker:
+    image: mini-marketplace-worker
+    build: *api-build
+    command: ['node', 'dist/worker.js']
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    # A job that is running when the container is stopped gets time to finish.
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  web:
+    image: mini-marketplace-web
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      # Loopback by default, like the database ports: the seeded accounts have published passwords.
+      # Set WEB_HOST=0.0.0.0 to serve the network.
+      - '${WEB_HOST:-127.0.0.1}:${WEB_PORT:-8080}:8080'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   pgdata:
   redisdata:
+  # Product images uploaded through the admin panel; written by the API only.
+  uploads:
