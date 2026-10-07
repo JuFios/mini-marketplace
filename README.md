@@ -50,7 +50,7 @@ Things worth knowing:
 | `api`              | The NestJS HTTP API.                                                                                                                                                                         |
 | `worker`           | The same image running `node dist/worker.js`: the BullMQ consumer that pays for orders, the sweeper for lost order jobs, and the cleanup of unused pictures and expired refresh tokens.      |
 | `migrate`          | Runs once: applies the migrations and seeds. `api` and `worker` wait for it.                                                                                                                  |
-| `postgres`, `redis` | The data stores. Their ports are not published unless `POSTGRES_PORT` / `REDIS_PORT` are set (see [Development](#development)).                                                              |
+| `postgres`, `redis` | The data stores, published on loopback only, on a port Docker picks unless `POSTGRES_PORT` / `REDIS_PORT` set one (see [Development](#development)).                                         |
 
 ## How it works
 
@@ -65,7 +65,7 @@ PostgreSQL is the single source of truth for stock, carts and orders. Redis hold
 
 ### Backend
 
-Modules: `auth`, `users`, `categories`, `products` (with the catalogue cache), `cart`, `orders` (checkout, lifecycle, queue), `payments`, `analytics`. Inside a module the flow is `controller → service → repository`: controllers do HTTP only (DTOs, status codes, guards), services hold the business rules and transactions, and repositories are the only code that talks to Prisma. A module never imports another module's repository.
+Modules: `auth`, `users`, `categories`, `products`, `catalog-cache`, `cart`, `orders` (checkout, lifecycle, queue), `payments`, `analytics`. Inside a module the flow is `controller → service → repository`: controllers do HTTP only (DTOs, status codes, guards), services hold the business rules and transactions, and repositories are the only code that talks to Prisma. A module never imports another module's repository.
 
 - **Validation.** `class-validator` DTOs with `whitelist` and `forbidNonWhitelisted`. Responses are explicit DTOs built by mapper functions, so a Prisma entity (with a password hash, say) is never serialised by accident.
 - **Errors.** Domain exceptions carry a stable code. One filter turns everything into the same envelope, including database errors (unique violation, `CHECK` violation, deadlock), and never leaks internals:
@@ -129,7 +129,7 @@ React with TypeScript, feature folders, and TanStack Query as the only server-st
 - The cart is optimistic: changes show at once, a failure rolls back with the server's message, and mutations run one after another so out-of-order answers cannot overwrite newer state. Quantities are absolute, so retries are harmless.
 - The refresh call is single-flight inside the tab and under a Web Lock across tabs, because two tabs presenting the same rotated cookie would trip the reuse detection and log the user out.
 - Checkout generates one `Idempotency-Key` per purchase attempt (new only when the cart or the shipping address changes), then polls the order until the payment result arrives.
-- Every data view handles loading, empty and error states. Forms use React Hook Form with Zod and show the API's field errors.
+- Every data view handles loading, empty and error states. A list page past the end (an old link) says so and offers the first page, instead of claiming nothing matches. Forms use React Hook Form with Zod and show the API's field errors.
 - Admin pages are lazy-loaded, so customers never download them; the chart library is only in the dashboard's chunk.
 - Components that appear in Storybook are presentational: props in, callbacks out, no data fetching.
 
@@ -207,10 +207,10 @@ Swagger UI at `/api/docs` describes every endpoint and is usable as is: log in w
 | Catalogue | `GET /products` (search, category, price range, sort, pagination), `GET /products/:id`, `GET /categories`                                  |
 | Cart      | `GET /cart`, `POST /cart/items`, `PATCH` and `DELETE /cart/items/:productId`, `DELETE /cart`                                               |
 | Orders    | `POST /orders` (header `Idempotency-Key`), `GET /orders`, `GET /orders/:id`, `POST /orders/:id/cancel`                                     |
-| Admin     | `/admin/products` (CRUD, stock adjustments, archive and restore, image upload), `/admin/categories`, `/admin/orders` (list, status change) |
+| Admin     | `/admin/products` (CRUD, stock adjustments, archive, restore, images), `/admin/categories`, `/admin/orders` (list, detail, status change)  |
 | Analytics | `GET /admin/analytics/summary`, `/sales-by-day`, `/sales-report.csv` (streamed, formula-injection safe)                                     |
 
-All paths are under `/api/v1`. Lists are paginated (`page` and `limit`, both capped). Anything under `/admin` needs the administrator role.
+All paths are under `/api/v1`. Lists are paginated (`page` and `limit`, both capped). Anything under `/admin` needs the administrator role. `GET /health` is public and reports whether PostgreSQL and Redis are up.
 
 ## Configuration
 
@@ -236,8 +236,8 @@ Docker needs no `.env`: every variable has a default in `docker-compose.yml`. Cr
 
 - **Passwords and sessions:** argon2id; the access token only in memory, the refresh token in an `HttpOnly`, `SameSite=Strict`, path-scoped cookie with rotation and reuse detection; separate signing keys.
 - **Access control:** a global authentication guard (public routes are opt-in), a roles guard for `/admin`, and ownership taken only from the token. Role and ownership never come from a request body or parameter.
-- **Input:** whitelisted DTOs on every route, bounded pagination, money as strings. Raw SQL is only through tagged templates (the unsafe variants are banned by a lint rule). Uploads are checked for size and for the file's leading bytes, stored under server-generated names and served with `nosniff`. External image URLs are stored but never fetched by the server, so there is no SSRF path. The CSV export neutralises spreadsheet formulas.
-- **Rate limits** (Redis, shared by all instances, fail-open): 100 requests a minute per client for everything; login 5 a minute per client and email and 20 a minute per client; registration 10 an hour; refresh 30 a minute. The client address comes from nginx's `X-Forwarded-For`, which nginx overwrites, so a forged header cannot buy a new budget (checked against the running stack).
+- **Input:** whitelisted DTOs on every route, bounded pagination, money as strings. Raw SQL is only through tagged templates (the unsafe variants are banned by a lint rule). Uploads are checked for size and for the file's leading bytes, stored under server-generated names and served with `nosniff`. External image URLs must be `https` (the CSP allows no other external image source) and are stored but never fetched by the server, so there is no SSRF path. The CSV export neutralises spreadsheet formulas.
+- **Rate limits** (Redis, shared by all instances, fail-open): 100 requests a minute per client on each route (the health check is exempt); login 5 a minute per client and email and 20 a minute per client; registration 10 an hour; refresh 30 a minute. The client address comes from nginx's `X-Forwarded-For`, which nginx overwrites, so a forged header cannot buy a new budget (checked against the running stack).
 - **Headers:** helmet on the API. nginx adds a Content-Security-Policy to the app (`script-src 'self'`, no framing, no plugins), `nosniff`, `Referrer-Policy`, `Permissions-Policy` and `X-Frame-Options`, and hides its version. The CSP allows inline styles (React style attributes, the toast library) and `https:` images (product pictures linked from elsewhere). HSTS is not sent because the stack serves plain HTTP; send it from whatever terminates TLS.
 - **Logs:** no request headers, and authorization, cookies, passwords and tokens are redacted. After a full smoke run the container logs contain none of the test credentials or tokens.
 - **Containers:** the API and the worker run as a non-root user from a production-only dependency set; the web image is the unprivileged nginx. No secret is baked into an image (`.env` files are excluded from the build context), and the published ports are on loopback.
